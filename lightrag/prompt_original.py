@@ -10,7 +10,7 @@ PROMPTS["DEFAULT_TUPLE_DELIMITER"] = "<|>"
 PROMPTS["DEFAULT_RECORD_DELIMITER"] = "##"
 PROMPTS["DEFAULT_COMPLETION_DELIMITER"] = "<|COMPLETE|>"
 
-PROMPTS["DEFAULT_ENTITY_TYPES"] = ["organization", "person_or_title", "document_form_record", "event_or_process", "activity_or_project", "product_or_device", "equipment_tool_component", "material_or_substance", "object", "other"]
+PROMPTS["DEFAULT_ENTITY_TYPES"] = ["organization", "person", "geo", "event", "category"]
 
 PROMPTS["DEFAULT_USER_PROMPT"] = "n/a"
 
@@ -22,20 +22,20 @@ Use {language} as output language.
 1. Identify all entities. For each identified entity, extract the following information:
 - entity_name: Name of the entity, use same language as input text. If English, capitalized the name.
 - entity_type: One of the following types: [{entity_types}]
-- entity_description: Comprehensive description of the entity's attributes and activities; must be grounded in the text, don't make it up!
+- entity_description: Comprehensive description of the entity's attributes and activities
 Format each entity as ("entity"{tuple_delimiter}<entity_name>{tuple_delimiter}<entity_type>{tuple_delimiter}<entity_description>)
 
 2. From the entities identified in step 1, identify all pairs of (source_entity, target_entity) that are *clearly related* to each other.
 For each pair of related entities, extract the following information:
 - source_entity: name of the source entity, as identified in step 1
 - target_entity: name of the target entity, as identified in step 1
-- relationship_description: explanation as to why you think the source entity and the target entity are related to each other; must be grounded in the text, don't make it up!
-- relationship_strength: a numeric score (1-10) indicating strength of the relationship between the source entity and target entity
+- relationship_description: explanation as to why you think the source entity and the target entity are related to each other
+- relationship_strength: a numeric score indicating strength of the relationship between the source entity and target entity
 - relationship_keywords: one or more high-level key words that summarize the overarching nature of the relationship, focusing on concepts or themes rather than specific details
 Format each relationship as ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_keywords>{tuple_delimiter}<relationship_strength>)
 
-3. Identify high-level keywords that summarize the main concepts, themes, or topics of the entire text. These should capture the overarching ideas present in the document.
-Format the content-level keywords as ("content_keywords"{tuple_delimiter}<high_level_keywords>)
+3. Identify high-level key words that summarize the main concepts, themes, or topics of the entire text. These should capture the overarching ideas present in the document.
+Format the content-level key words as ("content_keywords"{tuple_delimiter}<high_level_keywords>)
 
 4. Return output in {language} as a single list of all the entities and relationships identified in steps 1 and 2. Use **{record_delimiter}** as the list delimiter.
 
@@ -58,60 +58,58 @@ Output:"""
 PROMPTS["entity_extraction_examples"] = [
     """Example 1:
 
-Entity_types: ["document_form_record", "event_or_process", "activity_or_project", "other"]
+Entity_types: [person, technology, mission, organization, location]
 Text:
 ```
-Emphasis shall be put on preventive maintenance, to ensure equipment operates without unexpected down time or error. Correcting a fault in a machine after it breaks is considered repair, and not maintenance. The purpose of a robust preventive maintenance program is to eliminate 
-the need for unscheduled repairs and down time.
+while Alex clenched his jaw, the buzz of frustration dull against the backdrop of Taylor's authoritarian certainty. It was this competitive undercurrent that kept him alert, the sense that his and Jordan's shared commitment to discovery was an unspoken rebellion against Cruz's narrowing vision of control and order.
 
-1.3.1. General
-Preventive maintenance records must be kept for each unique piece of key process equipment. This record will contain, at a minimum:
-- Type of device
-- Manufacturer
-- Model number
-- Serial number
-Preventive Maintenance tasks shall be based on manufacturer’s guidelines, but may be overridden or altered to suit the company’s specific needs, based on equipment usage, criticality to quality, etc.
-Those that are done daily, hourly, “before use” or at a more frequent basis, the need for a record is not required. Records must be maintained for any task performed at a frequency of weekly or greater (use Preventive Maintenance Log).
+Then Taylor did something unexpected. They paused beside Jordan and, for a moment, observed the device with something akin to reverence. "If this tech can be understood..." Taylor said, their voice quieter, "It could change the game for us. For all of us."
+
+The underlying dismissal earlier seemed to falter, replaced by a glimpse of reluctant respect for the gravity of what lay in their hands. Jordan looked up, and for a fleeting heartbeat, their eyes locked with Taylor's, a wordless clash of wills softening into an uneasy truce.
+
+It was a small transformation, barely perceptible, but one that Alex noted with an inward nod. They had all been brought here by different paths
 ```
 
 Output:
-("entity"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"activity_or_project"{tuple_delimiter}"Aims to eliminate unscheduled repairs and downtime through proactive measures."){record_delimiter}
-("entity"{tuple_delimiter}"repair"{tuple_delimiter}"activity_or_project"{tuple_delimiter}"Correcting a fault after a machine breaks."){record_delimiter}
-("entity"{tuple_delimiter}"Preventive Maintenance Log"{tuple_delimiter}"document_form_record"{tuple_delimiter}"Records of Preventive Maintenance tasks performed on weekly or greater basis."){record_delimiter}
-("entity"{tuple_delimiter}"manufacturer's guidelines"{tuple_delimiter}"document_form_record"{tuple_delimiter}"Recommended maintenance procedures that serve as the basis for machine and equipment maintenance."){record_delimiter}
-("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"repair"{tuple_delimiter}"Preventive Maintenance is designed to reduce the need for repair and down time by addressing issues before failure occurs."{tuple_delimiter}"prevention vs correction, operational strategy, maintenance"{tuple_delimiter}9){record_delimiter}
-("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"Preventive Maintenance Log"{tuple_delimiter}"Records of Preventive Maintenance tasks must be kept, containing at a minimum Type of device, Manufacturer, Model number, Serial number."{tuple_delimiter}"documentation requirements, compliance tracking"{tuple_delimiter}10){record_delimiter}
-("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"manufacturer's guidelines"{tuple_delimiter}"Preventive Maintenance activities are based on manufacturer’s guidelines and internal company needs. They ensure equipment reliability, production quality, etc."{tuple_delimiter}"maintenance guidelines, customization"{tuple_delimiter}10){record_delimiter}
-("content_keywords"{tuple_delimiter}"preventive maintenance, equipment reliability, operational strategy, documentation"){completion_delimiter}
+("entity"{tuple_delimiter}"Alex"{tuple_delimiter}"person"{tuple_delimiter}"Alex is a character who experiences frustration and is observant of the dynamics among other characters."){record_delimiter}
+("entity"{tuple_delimiter}"Taylor"{tuple_delimiter}"person"{tuple_delimiter}"Taylor is portrayed with authoritarian certainty and shows a moment of reverence towards a device, indicating a change in perspective."){record_delimiter}
+("entity"{tuple_delimiter}"Jordan"{tuple_delimiter}"person"{tuple_delimiter}"Jordan shares a commitment to discovery and has a significant interaction with Taylor regarding a device."){record_delimiter}
+("entity"{tuple_delimiter}"Cruz"{tuple_delimiter}"person"{tuple_delimiter}"Cruz is associated with a vision of control and order, influencing the dynamics among other characters."){record_delimiter}
+("entity"{tuple_delimiter}"The Device"{tuple_delimiter}"technology"{tuple_delimiter}"The Device is central to the story, with potential game-changing implications, and is revered by Taylor."){record_delimiter}
+("relationship"{tuple_delimiter}"Alex"{tuple_delimiter}"Taylor"{tuple_delimiter}"Alex is affected by Taylor's authoritarian certainty and observes changes in Taylor's attitude towards the device."{tuple_delimiter}"power dynamics, perspective shift"{tuple_delimiter}7){record_delimiter}
+("relationship"{tuple_delimiter}"Alex"{tuple_delimiter}"Jordan"{tuple_delimiter}"Alex and Jordan share a commitment to discovery, which contrasts with Cruz's vision."{tuple_delimiter}"shared goals, rebellion"{tuple_delimiter}6){record_delimiter}
+("relationship"{tuple_delimiter}"Taylor"{tuple_delimiter}"Jordan"{tuple_delimiter}"Taylor and Jordan interact directly regarding the device, leading to a moment of mutual respect and an uneasy truce."{tuple_delimiter}"conflict resolution, mutual respect"{tuple_delimiter}8){record_delimiter}
+("relationship"{tuple_delimiter}"Jordan"{tuple_delimiter}"Cruz"{tuple_delimiter}"Jordan's commitment to discovery is in rebellion against Cruz's vision of control and order."{tuple_delimiter}"ideological conflict, rebellion"{tuple_delimiter}5){record_delimiter}
+("relationship"{tuple_delimiter}"Taylor"{tuple_delimiter}"The Device"{tuple_delimiter}"Taylor shows reverence towards the device, indicating its importance and potential impact."{tuple_delimiter}"reverence, technological significance"{tuple_delimiter}9){record_delimiter}
+("content_keywords"{tuple_delimiter}"power dynamics, ideological conflict, discovery, rebellion"){completion_delimiter}
 #############################""",
     """Example 2:
 
-Entity_types: [organization, event_or_process, activity_or_project, product_or_device, equipment_tool_component, material_or_substance]
+Entity_types: [company, index, commodity, market_trend, economic_policy, biological]
 Text:
 ```
-CERN, the European Organization for Nuclear Research, has a seat is in Geneva but its premises are located on both sides of the French-Swiss border. CERN’s mission is to enable international collaboration in the field of high-energy particle physics research.
-The Compact Muon Solenoid (CMS, https://home.cern/science/experiments/cms) experiment, located in CERN’s LHC accelerator, will undergo a major modification, the CMS Phase 2 Upgrade.
-A new tracking detector system shall be constructed, with one of the sub-detectors being TBPS. The TBPS will contain 12 Interconnection Rings that join the three concentric layers of the TBPS. For physics measurement reasons the TBPS structures shall be light,
-stiff and dimensionally stable, leading the material choice to carbon-fibre/foam composites.
+Stock markets faced a sharp downturn today as tech giants saw significant declines, with the Global Tech Index dropping by 3.4% in midday trading. Analysts attribute the selloff to investor concerns over rising interest rates and regulatory uncertainty.
+
+Among the hardest hit, Nexon Technologies saw its stock plummet by 7.8% after reporting lower-than-expected quarterly earnings. In contrast, Omega Energy posted a modest 2.1% gain, driven by rising oil prices.
+
+Meanwhile, commodity markets reflected a mixed sentiment. Gold futures rose by 1.5%, reaching $2,080 per ounce, as investors sought safe-haven assets. Crude oil prices continued their rally, climbing to $87.60 per barrel, supported by supply constraints and strong demand.
+
+Financial experts are closely watching the Federal Reserve's next move, as speculation grows over potential rate hikes. The upcoming policy announcement is expected to influence investor confidence and overall market stability.
 ```
 
 Output:
-("entity"{tuple_delimiter}"CERN"{tuple_delimiter}"organization"{tuple_delimiter}"CERN, the European Organization for Nuclear Research, headquartered in Geneva, enables high-energy particle physics research."){record_delimiter}
-("entity"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"product_or_device"{tuple_delimiter}"A particle physics experiment in CERN's LHC accelerator."){record_delimiter}
-("entity"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"activity_or_project"{tuple_delimiter}"A major modification of the Compact Muon Solenoid experiment."){record_delimiter}
-("entity"{tuple_delimiter}"LHC"{tuple_delimiter}"product_or_device"{tuple_delimiter}"A particle accelerator at CERN."){record_delimiter}
-("entity"{tuple_delimiter}"tracking detector system"{tuple_delimiter}"product_or_device"{tuple_delimiter}"A particle tracking detector system."){record_delimiter}
-("entity"{tuple_delimiter}"TBPS"{tuple_delimiter}"equipment_tool_component"{tuple_delimiter}"A sub-detector within the tracking detector system at the CMS experiment, comprising three concentric layers joined by 12 Interconnection Rings."){record_delimiter}
-("entity"{tuple_delimiter}"Interconnection Ring"{tuple_delimiter}"equipment_tool_component"{tuple_delimiter}"A component that joins the three concentric layers of the TBPS sub-detector."){record_delimiter}
-("entity"{tuple_delimiter}"carbon-fibre/foam composites"{tuple_delimiter}"material_or_substance"{tuple_delimiter}"Light, stiff and dimensionally stable construction material."){record_delimiter}
-("relationship"{tuple_delimiter}"LHC"{tuple_delimiter}"CERN"{tuple_delimiter}"CERN's LHC accelerator is a particle accelerator at CERN."{tuple_delimiter}"scientific research, accelerator, particle physics"{tuple_delimiter}10){record_delimiter}
-("relationship"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"LHC"{tuple_delimiter}"The CMS particle physics research experiment at the LHC accelerator."{tuple_delimiter}"scientific research, particle physics"{tuple_delimiter}10){record_delimiter}
-("relationship"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"A major planned modification of the CMS experiment."{tuple_delimiter}"device upgrade"{tuple_delimiter}10){record_delimiter}
-("relationship"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"tracking detector system"{tuple_delimiter}"A new particle tracking detector system shall be built as part of the CMS Phase 2 Upgrade."{tuple_delimiter}"system upgrade, particle detector"{tuple_delimiter}9){record_delimiter}
-("relationship"{tuple_delimiter}"tracking detector system"{tuple_delimiter}"TBPS"{tuple_delimiter}"TBPS is a sub-detector of the particle tracking detector system at the CMS experiment."{tuple_delimiter}"particle detector, device subsystem"{tuple_delimiter}9){record_delimiter}
-("relationship"{tuple_delimiter}"TBPS"{tuple_delimiter}"Interconnection Ring"{tuple_delimiter}"TBPS includes 12 Interconnection Rings that connect its three concentric layers."{tuple_delimiter}"structural component, subsystem integration"{tuple_delimiter}10){record_delimiter}
-("relationship"{tuple_delimiter}"TBPS"{tuple_delimiter}"carbon-fibre/foam composites"{tuple_delimiter}"TBPS will be constructed using carbon-fibre/foam composites for lightness, stiffness, and dimensional stability."{tuple_delimiter}"material selection, performance optimization"{tuple_delimiter}10){record_delimiter}
-("content_keywords"{tuple_delimiter}"particle physics, detector upgrade, subsystem design, composite materials"){completion_delimiter}
+("entity"{tuple_delimiter}"Global Tech Index"{tuple_delimiter}"index"{tuple_delimiter}"The Global Tech Index tracks the performance of major technology stocks and experienced a 3.4% decline today."){record_delimiter}
+("entity"{tuple_delimiter}"Nexon Technologies"{tuple_delimiter}"company"{tuple_delimiter}"Nexon Technologies is a tech company that saw its stock decline by 7.8% after disappointing earnings."){record_delimiter}
+("entity"{tuple_delimiter}"Omega Energy"{tuple_delimiter}"company"{tuple_delimiter}"Omega Energy is an energy company that gained 2.1% in stock value due to rising oil prices."){record_delimiter}
+("entity"{tuple_delimiter}"Gold Futures"{tuple_delimiter}"commodity"{tuple_delimiter}"Gold futures rose by 1.5%, indicating increased investor interest in safe-haven assets."){record_delimiter}
+("entity"{tuple_delimiter}"Crude Oil"{tuple_delimiter}"commodity"{tuple_delimiter}"Crude oil prices rose to $87.60 per barrel due to supply constraints and strong demand."){record_delimiter}
+("entity"{tuple_delimiter}"Market Selloff"{tuple_delimiter}"market_trend"{tuple_delimiter}"Market selloff refers to the significant decline in stock values due to investor concerns over interest rates and regulations."){record_delimiter}
+("entity"{tuple_delimiter}"Federal Reserve Policy Announcement"{tuple_delimiter}"economic_policy"{tuple_delimiter}"The Federal Reserve's upcoming policy announcement is expected to impact investor confidence and market stability."){record_delimiter}
+("relationship"{tuple_delimiter}"Global Tech Index"{tuple_delimiter}"Market Selloff"{tuple_delimiter}"The decline in the Global Tech Index is part of the broader market selloff driven by investor concerns."{tuple_delimiter}"market performance, investor sentiment"{tuple_delimiter}9){record_delimiter}
+("relationship"{tuple_delimiter}"Nexon Technologies"{tuple_delimiter}"Global Tech Index"{tuple_delimiter}"Nexon Technologies' stock decline contributed to the overall drop in the Global Tech Index."{tuple_delimiter}"company impact, index movement"{tuple_delimiter}8){record_delimiter}
+("relationship"{tuple_delimiter}"Gold Futures"{tuple_delimiter}"Market Selloff"{tuple_delimiter}"Gold prices rose as investors sought safe-haven assets during the market selloff."{tuple_delimiter}"market reaction, safe-haven investment"{tuple_delimiter}10){record_delimiter}
+("relationship"{tuple_delimiter}"Federal Reserve Policy Announcement"{tuple_delimiter}"Market Selloff"{tuple_delimiter}"Speculation over Federal Reserve policy changes contributed to market volatility and investor selloff."{tuple_delimiter}"interest rate impact, financial regulation"{tuple_delimiter}7){record_delimiter}
+("content_keywords"{tuple_delimiter}"market downturn, investor sentiment, commodities, Federal Reserve, stock performance"){completion_delimiter}
 #############################""",
     """Example 3:
 

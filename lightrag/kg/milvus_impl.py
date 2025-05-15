@@ -43,6 +43,8 @@ class MilvusVectorDBStorage(BaseVectorStorage):
             )
         self.cosine_better_than_threshold = cosine_threshold
 
+        db_name = os.environ.get("MILVUS_DB_NAME", config.get("milvus", "db_name", fallback=None))
+
         self._client = MilvusClient(
             uri=os.environ.get(
                 "MILVUS_URI",
@@ -63,10 +65,13 @@ class MilvusVectorDBStorage(BaseVectorStorage):
             token=os.environ.get(
                 "MILVUS_TOKEN", config.get("milvus", "token", fallback=None)
             ),
-            db_name=os.environ.get(
-                "MILVUS_DB_NAME", config.get("milvus", "db_name", fallback=None)
-            ),
+            #db_name=db_name,
         )
+
+        if db_name not in self._client.list_databases():
+            logger.info(f"Milvus database {db_name} does not exist, creating it ...")
+            self._client.create_database(db_name)
+
         self._max_batch_size = self.global_config["embedding_batch_num"]
         MilvusVectorDBStorage.create_collection_if_not_exist(
             self._client,
