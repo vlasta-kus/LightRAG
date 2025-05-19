@@ -268,7 +268,7 @@ class Neo4JStorage(BaseGraphStorage):
                 await result.consume()  # Ensure results are consumed even on error
                 raise
 
-    async def get_node(self, node_id: str) -> dict[str, str] | None:
+    async def get_node(self, node_id: str, case_insensitive: bool = False) -> dict[str, str] | None:
         """Get node by its label identifier, return only node properties
 
         Args:
@@ -286,7 +286,9 @@ class Neo4JStorage(BaseGraphStorage):
             database=self._DATABASE, default_access_mode="READ"
         ) as session:
             try:
-                query = "MATCH (n:base) WHERE toLower(n.entity_id) = toLower($entity_id) RETURN n"
+                query = "MATCH (n:base {entity_id: $entity_id}) RETURN n"
+                if case_insensitive:
+                    query = "MATCH (n:base) WHERE toLower(n.entity_id) = toLower($entity_id) RETURN n" 
                 result = await session.run(query, entity_id=node_id)
                 try:
                     records = await result.fetch(

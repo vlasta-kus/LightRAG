@@ -255,7 +255,7 @@ async def _merge_nodes_then_upsert(
     already_description = []
     already_file_paths = []
 
-    already_node = await knowledge_graph_inst.get_node(entity_name)
+    already_node = await knowledge_graph_inst.get_node(entity_name, case_insensitive=True)
     if already_node is not None:
         entity_name = already_node["entity_id"] # id (name) of already existing node; needed for correct upsert
         already_entity_types.append(already_node["entity_type"])

@@ -330,12 +330,12 @@ class BaseGraphStorage(StorageNameSpace, ABC):
         """
 
     @abstractmethod
-    async def get_node(self, node_id: str) -> dict[str, str] | None:
+    async def get_node(self, node_id: str, case_insensitive: bool = False) -> dict[str, str] | None:
         """Get node by its ID, returning only node properties.
 
         Args:
             node_id: The ID of the node to retrieve
-
+            case_insensitive: Whether to perform case-insensitive matching
         Returns:
             A dictionary of node properties if found, None otherwise
         """
