@@ -286,7 +286,7 @@ class Neo4JStorage(BaseGraphStorage):
             database=self._DATABASE, default_access_mode="READ"
         ) as session:
             try:
-                query = "MATCH (n:base {entity_id: $entity_id}) RETURN n"
+                query = "MATCH (n:base) WHERE toLower(n.entity_id) = toLower($entity_id) RETURN n"
                 result = await session.run(query, entity_id=node_id)
                 try:
                     records = await result.fetch(

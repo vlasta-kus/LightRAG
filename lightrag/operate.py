@@ -257,6 +257,7 @@ async def _merge_nodes_then_upsert(
 
     already_node = await knowledge_graph_inst.get_node(entity_name)
     if already_node is not None:
+        entity_name = already_node["entity_id"] # id (name) of already existing node; needed for correct upsert
         already_entity_types.append(already_node["entity_type"])
         already_source_ids.extend(
             split_string_by_multi_markers(already_node["source_id"], [GRAPH_FIELD_SEP])

@@ -47,14 +47,14 @@ if not os.path.exists(WORKING_DIR):
     os.mkdir(WORKING_DIR)
 
 
-def get_json_files(directory):
-            """Recursively find all JSON files in directory and subdirectories"""
-            json_files = []
-            for root, _, files in os.walk(directory):
-                for file in files:
-                    if file.endswith('.json'):
-                        json_files.append(os.path.join(root, file))
-            return json_files
+def get_json_files(directory) -> list[str]:
+    """Recursively find all JSON files in directory and subdirectories"""
+    json_files = []
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith('.json'):
+                json_files.append(os.path.join(root, file))
+    return json_files
 
 
 async def initialize_rag():
@@ -128,7 +128,7 @@ def main(task: Literal["ingest", "query"]):
                 text_obj = json.load(f)
             text = text_obj['content'].strip()
             print(f"  Text character length: {len(text)}")
-            rag.insert(input=text, ids=file_id)
+            rag.insert(input=text, ids=file_id, file_paths=file_id)
             print(f"Finished processing document: {file}")
 
     elif task == "query":
