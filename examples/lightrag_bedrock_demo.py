@@ -64,6 +64,7 @@ async def initialize_rag():
         log_level=logging.DEBUG,
         llm_model_func=bedrock_complete,
         llm_model_name="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+        entity_extract_max_gleaning=1,
         embedding_func=EmbeddingFunc(
             #embedding_dim=1024, max_token_size=8192, func=bedrock_embed
             embedding_dim=1024, max_token_size=2048, func=lambda texts: bedrock_embed(texts, model="cohere.embed-english-v3")

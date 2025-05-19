@@ -10,7 +10,8 @@ PROMPTS["DEFAULT_TUPLE_DELIMITER"] = "<|>"
 PROMPTS["DEFAULT_RECORD_DELIMITER"] = "##"
 PROMPTS["DEFAULT_COMPLETION_DELIMITER"] = "<|COMPLETE|>"
 
-PROMPTS["DEFAULT_ENTITY_TYPES"] = ["organization", "person_or_title", "document_form_record", "event_or_process", "activity_or_project", "product_or_device", "equipment_tool_component", "material_or_substance", "object", "other"]
+#PROMPTS["DEFAULT_ENTITY_TYPES"] = ["organization", "person_or_title", "document_form_record", "event_or_process", "activity_or_project", "product_or_device", "equipment_tool_component", "material_or_substance", "object", "other"]
+PROMPTS["DEFAULT_ENTITY_TYPES"] = ["customer", "supplier", "organization (other than customer or supplier)", "person_or_title", "document (title/id of any document/form/record/...)", "process", "task (any task or activity)", "event (e.g. machine downtime)", "product (anything produced/sold, e.g. machines, tools, components, substances etc.)", "object (any kind of physical object that is not a product)", "other (any other relevant specific manufacturing-related entity)"]
 
 PROMPTS["DEFAULT_USER_PROMPT"] = "n/a"
 
@@ -20,8 +21,8 @@ Use {language} as output language.
 
 ---Steps---
 1. Identify all entities. For each identified entity, extract the following information:
-- entity_name: Name of the entity, use same language as input text. If English, capitalized the name.
-- entity_type: One of the following types: [{entity_types}]
+- entity_name: Name of the entity, use same language as input text. Avoid too generic entity names (e.g. "machine"), always attempt to identify concrete full entity name from the context (e.g. "cooling machine")!
+- entity_type: One of the following types (optionally with descriptions or examples in the round brackets): [{entity_types}]
 - entity_description: Comprehensive description of the entity's attributes and activities; must be grounded in the text, don't make it up!
 Format each entity as ("entity"{tuple_delimiter}<entity_name>{tuple_delimiter}<entity_type>{tuple_delimiter}<entity_description>)
 
@@ -58,7 +59,7 @@ Output:"""
 PROMPTS["entity_extraction_examples"] = [
     """Example 1:
 
-Entity_types: ["document_form_record", "event_or_process", "activity_or_project", "other"]
+Entity_types: [document (name or title of any kind of document), task (any task or activity), other]
 Text:
 ```
 Emphasis shall be put on preventive maintenance, to ensure equipment operates without unexpected down time or error. Correcting a fault in a machine after it breaks is considered repair, and not maintenance. The purpose of a robust preventive maintenance program is to eliminate 
@@ -70,39 +71,39 @@ Preventive maintenance records must be kept for each unique piece of key process
 - Manufacturer
 - Model number
 - Serial number
-Preventive Maintenance tasks shall be based on manufacturer’s guidelines, but may be overridden or altered to suit the company’s specific needs, based on equipment usage, criticality to quality, etc.
+Manufacturers often issue guidelines. Preventive Maintenance tasks shall be based on these guidelines, but may be overridden or altered to suit the company’s specific needs, based on equipment usage, criticality to quality, etc.
 Those that are done daily, hourly, “before use” or at a more frequent basis, the need for a record is not required. Records must be maintained for any task performed at a frequency of weekly or greater (use Preventive Maintenance Log).
 ```
 
 Output:
-("entity"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"activity_or_project"{tuple_delimiter}"Aims to eliminate unscheduled repairs and downtime through proactive measures."){record_delimiter}
-("entity"{tuple_delimiter}"repair"{tuple_delimiter}"activity_or_project"{tuple_delimiter}"Correcting a fault after a machine breaks."){record_delimiter}
-("entity"{tuple_delimiter}"Preventive Maintenance Log"{tuple_delimiter}"document_form_record"{tuple_delimiter}"Records of Preventive Maintenance tasks performed on weekly or greater basis."){record_delimiter}
-("entity"{tuple_delimiter}"manufacturer's guidelines"{tuple_delimiter}"document_form_record"{tuple_delimiter}"Recommended maintenance procedures that serve as the basis for machine and equipment maintenance."){record_delimiter}
-("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"repair"{tuple_delimiter}"Preventive Maintenance is designed to reduce the need for repair and down time by addressing issues before failure occurs."{tuple_delimiter}"prevention vs correction, operational strategy, maintenance"{tuple_delimiter}9){record_delimiter}
+("entity"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"task"{tuple_delimiter}"Aims to eliminate unscheduled repairs and downtime through proactive measures."){record_delimiter}
+("entity"{tuple_delimiter}"machine repair"{tuple_delimiter}"task"{tuple_delimiter}"Correcting a fault after a machine breaks."){record_delimiter}
+("entity"{tuple_delimiter}"Preventive Maintenance Log"{tuple_delimiter}"document"{tuple_delimiter}"Records of Preventive Maintenance tasks performed on weekly or greater basis."){record_delimiter}
+("entity"{tuple_delimiter}"manufacturer's guidelines"{tuple_delimiter}"document"{tuple_delimiter}"Recommended maintenance procedures that serve as the basis for machine and equipment maintenance."){record_delimiter}
+("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"machine repair"{tuple_delimiter}"Preventive Maintenance is designed to reduce the need for repair and down time by addressing issues before failure occurs."{tuple_delimiter}"prevention vs correction, operational strategy, maintenance"{tuple_delimiter}9){record_delimiter}
 ("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"Preventive Maintenance Log"{tuple_delimiter}"Records of Preventive Maintenance tasks must be kept, containing at a minimum Type of device, Manufacturer, Model number, Serial number."{tuple_delimiter}"documentation requirements, compliance tracking"{tuple_delimiter}10){record_delimiter}
 ("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"manufacturer's guidelines"{tuple_delimiter}"Preventive Maintenance activities are based on manufacturer’s guidelines and internal company needs. They ensure equipment reliability, production quality, etc."{tuple_delimiter}"maintenance guidelines, customization"{tuple_delimiter}10){record_delimiter}
 ("content_keywords"{tuple_delimiter}"preventive maintenance, equipment reliability, operational strategy, documentation"){completion_delimiter}
 #############################""",
     """Example 2:
 
-Entity_types: [organization, event_or_process, activity_or_project, product_or_device, equipment_tool_component, material_or_substance]
+Entity_types: [organization, event_or_process, task, product (anything produced/sold, e.g. machines, tools, components, substances etc.), object (any kind of physical object that is not a product), material_or_substance]
 Text:
 ```
 CERN, the European Organization for Nuclear Research, has a seat is in Geneva but its premises are located on both sides of the French-Swiss border. CERN’s mission is to enable international collaboration in the field of high-energy particle physics research.
 The Compact Muon Solenoid (CMS, https://home.cern/science/experiments/cms) experiment, located in CERN’s LHC accelerator, will undergo a major modification, the CMS Phase 2 Upgrade.
 A new tracking detector system shall be constructed, with one of the sub-detectors being TBPS. The TBPS will contain 12 Interconnection Rings that join the three concentric layers of the TBPS. For physics measurement reasons the TBPS structures shall be light,
-stiff and dimensionally stable, leading the material choice to carbon-fibre/foam composites.
+stiff and dimensionally stable, leading the material choice to cutting edge composites, such as carbon-fibre/foam structures.
 ```
 
 Output:
 ("entity"{tuple_delimiter}"CERN"{tuple_delimiter}"organization"{tuple_delimiter}"CERN, the European Organization for Nuclear Research, headquartered in Geneva, enables high-energy particle physics research."){record_delimiter}
-("entity"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"product_or_device"{tuple_delimiter}"A particle physics experiment in CERN's LHC accelerator."){record_delimiter}
-("entity"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"activity_or_project"{tuple_delimiter}"A major modification of the Compact Muon Solenoid experiment."){record_delimiter}
-("entity"{tuple_delimiter}"LHC"{tuple_delimiter}"product_or_device"{tuple_delimiter}"A particle accelerator at CERN."){record_delimiter}
-("entity"{tuple_delimiter}"tracking detector system"{tuple_delimiter}"product_or_device"{tuple_delimiter}"A particle tracking detector system."){record_delimiter}
-("entity"{tuple_delimiter}"TBPS"{tuple_delimiter}"equipment_tool_component"{tuple_delimiter}"A sub-detector within the tracking detector system at the CMS experiment, comprising three concentric layers joined by 12 Interconnection Rings."){record_delimiter}
-("entity"{tuple_delimiter}"Interconnection Ring"{tuple_delimiter}"equipment_tool_component"{tuple_delimiter}"A component that joins the three concentric layers of the TBPS sub-detector."){record_delimiter}
+("entity"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"object"{tuple_delimiter}"A particle physics experiment in CERN's LHC accelerator."){record_delimiter}
+("entity"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"task"{tuple_delimiter}"A major modification of the Compact Muon Solenoid experiment."){record_delimiter}
+("entity"{tuple_delimiter}"LHC"{tuple_delimiter}"object"{tuple_delimiter}"A particle accelerator at CERN."){record_delimiter}
+("entity"{tuple_delimiter}"tracking detector system"{tuple_delimiter}"object"{tuple_delimiter}"A particle tracking detector system."){record_delimiter}
+("entity"{tuple_delimiter}"TBPS"{tuple_delimiter}"product"{tuple_delimiter}"A sub-detector within the tracking detector system at the CMS experiment."){record_delimiter}
+("entity"{tuple_delimiter}"Interconnection Ring"{tuple_delimiter}"product"{tuple_delimiter}"A component that joins the three concentric layers of the TBPS sub-detector."){record_delimiter}
 ("entity"{tuple_delimiter}"carbon-fibre/foam composites"{tuple_delimiter}"material_or_substance"{tuple_delimiter}"Light, stiff and dimensionally stable construction material."){record_delimiter}
 ("relationship"{tuple_delimiter}"LHC"{tuple_delimiter}"CERN"{tuple_delimiter}"CERN's LHC accelerator is a particle accelerator at CERN."{tuple_delimiter}"scientific research, accelerator, particle physics"{tuple_delimiter}10){record_delimiter}
 ("relationship"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"LHC"{tuple_delimiter}"The CMS particle physics research experiment at the LHC accelerator."{tuple_delimiter}"scientific research, particle physics"{tuple_delimiter}10){record_delimiter}
@@ -239,14 +240,14 @@ You are a helpful assistant tasked with identifying both high-level and low-leve
 
 ---Goal---
 
-Given the query and conversation history, list both high-level and low-level keywords. High-level keywords focus on overarching concepts or themes, while low-level keywords focus on specific entities, details, or concrete terms.
+Given the query and conversation history, list both high-level and low-level keywords. High-level keywords focus on overarching concepts or themes or actions (relationships in a Knowledge Graph), while low-level keywords focus on specific entities, details, or concrete terms (entities in a Knowledge Graph).
 
 ---Instructions---
 
 - Consider both the current query and relevant conversation history when extracting keywords
 - Output the keywords in JSON format, it will be parsed by a JSON parser, do not add any extra content in output
 - The JSON should have two keys:
-  - "high_level_keywords" for overarching concepts or themes
+  - "high_level_keywords" for overarching concepts or themes or actions
   - "low_level_keywords" for specific entities or details
 
 ######################
@@ -270,32 +271,32 @@ Output:
 PROMPTS["keywords_extraction_examples"] = [
     """Example 1:
 
-Query: "How does international trade influence global economic stability?"
+Query: "How can I minimize the impact of machine downtime on production?"
 ################
 Output:
 {
-  "high_level_keywords": ["International trade", "Global economic stability", "Economic impact"],
-  "low_level_keywords": ["Trade agreements", "Tariffs", "Currency exchange", "Imports", "Exports"]
+  "high_level_keywords": ["machine downtime", "production efficiency", "operational continuity", "downtime mitigation"],
+  "low_level_keywords": ["machine failure", "root cause analysis", "preventive maintenance", "real-time monitoring", "automation"]
 }
 #############################""",
     """Example 2:
 
-Query: "What are the environmental consequences of deforestation on biodiversity?"
+Query: "I just found some foreign object debris (FODs) in my product, how do I prevent this from happening?"
 ################
 Output:
 {
-  "high_level_keywords": ["Environmental consequences", "Deforestation", "Biodiversity loss"],
-  "low_level_keywords": ["Species extinction", "Habitat destruction", "Carbon emissions", "Rainforest", "Ecosystem"]
+  "high_level_keywords": ["foreign object debris (FODs) prevention", "product quality control", "manufacturing contamination"],
+  "low_level_keywords": ["foreign object debris (FODs)", "inspection procedures", "quality ensurance process", "debris containment"]
 }
 #############################""",
     """Example 3:
 
-Query: "What is the role of education in reducing poverty?"
+Query: "Give me a summary of the issues on the Volkswagen Aerocovers?"
 ################
 Output:
 {
-  "high_level_keywords": ["Education", "Poverty reduction", "Socioeconomic development"],
-  "low_level_keywords": ["School access", "Literacy rates", "Job training", "Income inequality"]
+  "high_level_keywords": ["product issues", "manufacturing quality", "customer complaints"],
+  "low_level_keywords": ["Volkswagen", "aerocovers", "wheel accessory"]
 }
 #############################""",
 ]

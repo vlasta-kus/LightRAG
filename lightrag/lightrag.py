@@ -976,6 +976,7 @@ class LightRAG:
                                     }
                                 )
                             )
+                            ### TO DO: a task to add chunks & docs storage to a graph (and then attach entities based on mesh ID)
                             chunks_vdb_task = asyncio.create_task(
                                 self.chunks_vdb.upsert(chunks)
                             )
