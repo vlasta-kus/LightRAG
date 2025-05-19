@@ -1920,6 +1920,9 @@ async def naive_query(
 
     if text_units_context is None or len(text_units_context) == 0:
         return PROMPTS["fail_response"]
+    
+    logger.debug(f"Retrieved chunks: {len(text_units_context)}")
+    logger.debug(f"First chunk: {text_units_context[0]}")
 
     text_units_str = json.dumps(text_units_context, ensure_ascii=False)
     if query_param.only_need_context:
