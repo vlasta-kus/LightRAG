@@ -14,6 +14,7 @@ from tenacity import (
 )
 
 import logging
+from prompt import GRAPH_FIELD_SEP
 from ..utils import logger
 from ..base import BaseGraphStorage
 from ..types import KnowledgeGraph, KnowledgeGraphNode, KnowledgeGraphEdge
@@ -786,11 +787,13 @@ class Neo4JStorage(BaseGraphStorage):
 
                     if 'source_id' in properties:
                         query = (
-                            "MATCH (c:_Chunk {id: $source_id})\n"
                             "MATCH (n:base {entity_id: $entity_id})\n"
+                            "WITH n\n"
+                            "UNWIND $source_ids as source_id\n"
+                            "MATCH (c:_Chunk {id: source_id})\n"
                             "MERGE (n)-[:_MENTIONED_IN]->(c)"
                         )
-                        await tx.run(query, entity_id=node_id, source_id=properties['source_id'])
+                        await tx.run(query, entity_id=node_id, source_ids=properties['source_id'].split(GRAPH_FIELD_SEP))
                         await result.consume()
 
                 await session.execute_write(execute_upsert)
@@ -1392,10 +1395,11 @@ class Neo4JStorage(BaseGraphStorage):
                     MERGE (d:_Document {id: $doc_id})
                     SET d += $doc_props
                     """
-                    await tx.run(doc_query, {
+                    result = await tx.run(doc_query, {
                         "doc_id": doc_id,
                         "doc_props": doc_props
                     })
+                    await result.consume()
                     
                     # If chunks are provided, create/update them
                     if "chunks" in doc_data:
@@ -1411,11 +1415,12 @@ class Neo4JStorage(BaseGraphStorage):
                             MATCH (d:_Document {id: $doc_id})
                             MERGE (d)-[:HAS_CHUNK]->(c)
                             """
-                            await tx.run(chunk_query, {
+                            result = await tx.run(chunk_query, {
                                 "chunk_id": chunk["id"],
                                 "chunk_props": chunk,
                                 "doc_id": doc_id
                             })
+                            await result.consume()
                         
                         # Then, create NEXT_CHUNK relationships between consecutive chunks
                         for i in range(len(sorted_chunks) - 1):
