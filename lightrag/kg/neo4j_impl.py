@@ -2,7 +2,7 @@ import inspect
 import os
 import re
 from dataclasses import dataclass
-from typing import final
+from typing import final, Any
 import configparser
 
 
@@ -186,7 +186,18 @@ class Neo4JStorage(BaseGraphStorage):
                             await result.consume()
                 except Exception as e:
                     logger.warning(f"Failed to create index: {str(e)}")
-                break
+
+                await self._create_indexes()
+
+    async def _create_indexes(self):
+        async with self._driver.session(database=self._DATABASE) as session:
+            try:
+                await session.run("CREATE INDEX _document_id IF NOT EXISTS FOR (d:_Document) ON (d.id)")
+                logger.info("Created or verified index for _Document nodes on id")
+                await session.run("CREATE INDEX _chunk_id IF NOT EXISTS FOR (c:_Chunk) ON (c.id)")
+                logger.info("Created or verified index for _Chunk nodes on id")
+            except Exception as e:
+                logger.warning(f"Failed to create indexes: {str(e)}")
 
     async def finalize(self):
         """Close the Neo4j driver and release all resources"""
@@ -773,6 +784,15 @@ class Neo4JStorage(BaseGraphStorage):
                     )
                     await result.consume()  # Ensure result is fully consumed
 
+                    if 'source_id' in properties:
+                        query = (
+                            "MATCH (c:_Chunk {id: $source_id})\n"
+                            "MATCH (n:base {entity_id: $entity_id})\n"
+                            "MERGE (n)-[:_MENTIONED_IN]->(c)"
+                        )
+                        await tx.run(query, entity_id=node_id, source_id=properties['source_id'])
+                        await result.consume()
+
                 await session.execute_write(execute_upsert)
         except Exception as e:
             logger.error(f"Error during upsert: {str(e)}")
@@ -1352,3 +1372,93 @@ class Neo4JStorage(BaseGraphStorage):
         except Exception as e:
             logger.error(f"Error dropping Neo4j database {self._DATABASE}: {e}")
             return {"status": "error", "message": str(e)}
+
+    async def upsert_document(self, doc_id: str, doc_data: dict[str, Any]) -> None:
+        """
+        Upsert a document and its chunks into Neo4j.
+        
+        Args:
+            doc_id: Unique document identifier
+            doc_data: Dictionary containing document data and optional chunks
+        """
+        try:
+            async with self._driver.session(database=self._DATABASE) as session:
+                async def execute_upsert(tx: AsyncManagedTransaction):
+                    # Extract document properties (excluding chunks)
+                    doc_props = {k: v for k, v in doc_data.items() if k != "chunks"}
+                    
+                    # Create/update document node
+                    doc_query = """
+                    MERGE (d:_Document {id: $doc_id})
+                    SET d += $doc_props
+                    """
+                    await tx.run(doc_query, {
+                        "doc_id": doc_id,
+                        "doc_props": doc_props
+                    })
+                    
+                    # If chunks are provided, create/update them
+                    if "chunks" in doc_data:
+                        # Sort chunks by chunk_order_index to ensure correct sequence
+                        sorted_chunks = sorted(doc_data["chunks"], key=lambda x: x.get("chunk_order_index", 0))
+                        
+                        # First, create all chunks and their relationships to the document
+                        for chunk in sorted_chunks:
+                            chunk_query = """
+                            MERGE (c:_Chunk {id: $chunk_id})
+                            SET c += $chunk_props
+                            WITH c
+                            MATCH (d:_Document {id: $doc_id})
+                            MERGE (d)-[:HAS_CHUNK]->(c)
+                            """
+                            await tx.run(chunk_query, {
+                                "chunk_id": chunk["id"],
+                                "chunk_props": chunk,
+                                "doc_id": doc_id
+                            })
+                        
+                        # Then, create NEXT_CHUNK relationships between consecutive chunks
+                        for i in range(len(sorted_chunks) - 1):
+                            current_chunk = sorted_chunks[i]
+                            next_chunk = sorted_chunks[i + 1]
+                            next_chunk_query = """
+                            MATCH (c1:_Chunk {id: $chunk_id})
+                            MATCH (c2:_Chunk {id: $next_chunk_id})
+                            MERGE (c1)-[:NEXT_CHUNK]->(c2)
+                            """
+                            await tx.run(next_chunk_query, {
+                                "chunk_id": current_chunk["id"],
+                                "next_chunk_id": next_chunk["id"]
+                            })
+                
+                await session.execute_write(execute_upsert)
+        except Exception as e:
+            logger.error(f"Error during document upsert: {str(e)}")
+            raise
+
+    async def get_document(self, doc_id: str) -> dict[str, Any] | None:
+        """
+        Get document and its chunks by ID.
+        
+        Args:
+            doc_id: Document identifier
+            
+        Returns:
+            Dictionary containing document data and chunks, or None if not found
+        """
+        async with self._driver.session(database=self._DATABASE) as session:
+            query = """
+            MATCH (d:_Document {id: $doc_id})
+            OPTIONAL MATCH (d)-[:HAS_CHUNK]->(c:_Chunk)
+            RETURN d, collect(c) as chunks
+            """
+            result = await session.run(query, doc_id=doc_id)
+            record = await result.single()
+            await result.consume()
+            
+            if record:
+                doc_data = dict(record["d"])
+                chunks = [dict(chunk) for chunk in record["chunks"]]
+                doc_data["chunks"] = chunks
+                return doc_data
+            return None

@@ -11,7 +11,13 @@ PROMPTS["DEFAULT_RECORD_DELIMITER"] = "##"
 PROMPTS["DEFAULT_COMPLETION_DELIMITER"] = "<|COMPLETE|>"
 
 #PROMPTS["DEFAULT_ENTITY_TYPES"] = ["organization", "person_or_title", "document_form_record", "event_or_process", "activity_or_project", "product_or_device", "equipment_tool_component", "material_or_substance", "object", "other"]
-PROMPTS["DEFAULT_ENTITY_TYPES"] = ["customer", "supplier", "organization (other than customer or supplier)", "person_or_title", "document (title/id of any document/form/record/...)", "process", "task (any task or activity)", "event (e.g. machine downtime)", "product (anything produced/sold, e.g. machines, tools, components, substances etc.)", "object (any kind of physical object that is not a product)", "other (any other relevant specific manufacturing-related entity)"]
+#"product (anything produced/sold, e.g. machines, tools, components, substances etc.)"
+PROMPTS["DEFAULT_ENTITY_TYPES"] = [
+    "organization", "person_or_title", "document (id or title of any document)", 
+    "process (a process, procedure, plan, or any set of steps/tasks; e.g. change management process, Corrective Procedure etc.)", 
+    "task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.)", 
+    "device (any kind of machine, device, tool, component ...)", "object (any kind of physical object that is not a device)", "material_or_substance", 
+    "other (any other relevant specific manufacturing-related entity)"]
 
 PROMPTS["DEFAULT_USER_PROMPT"] = "n/a"
 
@@ -59,7 +65,7 @@ Output:"""
 PROMPTS["entity_extraction_examples"] = [
     """Example 1:
 
-Entity_types: [document (name or title of any kind of document), task (any task or activity), other]
+Entity_types: [document (name or title of any kind of document), task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.), other]
 Text:
 ```
 Emphasis shall be put on preventive maintenance, to ensure equipment operates without unexpected down time or error. Correcting a fault in a machine after it breaks is considered repair, and not maintenance. The purpose of a robust preventive maintenance program is to eliminate 
@@ -87,7 +93,7 @@ Output:
 #############################""",
     """Example 2:
 
-Entity_types: [organization, event_or_process, task, product (anything produced/sold, e.g. machines, tools, components, substances etc.), object (any kind of physical object that is not a product), material_or_substance]
+Entity_types: [organization, process (formal process/procedure), task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.), device (any kind of machine, device, tool, component ...), object (any kind of physical object that is not a product), material_or_substance]
 Text:
 ```
 CERN, the European Organization for Nuclear Research, has a seat is in Geneva but its premises are located on both sides of the French-Swiss border. CERN’s mission is to enable international collaboration in the field of high-energy particle physics research.
@@ -98,12 +104,12 @@ stiff and dimensionally stable, leading the material choice to cutting edge comp
 
 Output:
 ("entity"{tuple_delimiter}"CERN"{tuple_delimiter}"organization"{tuple_delimiter}"CERN, the European Organization for Nuclear Research, headquartered in Geneva, enables high-energy particle physics research."){record_delimiter}
-("entity"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"object"{tuple_delimiter}"A particle physics experiment in CERN's LHC accelerator."){record_delimiter}
+("entity"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"device"{tuple_delimiter}"A particle physics experiment at CERN's LHC accelerator."){record_delimiter}
 ("entity"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"task"{tuple_delimiter}"A major modification of the Compact Muon Solenoid experiment."){record_delimiter}
-("entity"{tuple_delimiter}"LHC"{tuple_delimiter}"object"{tuple_delimiter}"A particle accelerator at CERN."){record_delimiter}
-("entity"{tuple_delimiter}"tracking detector system"{tuple_delimiter}"object"{tuple_delimiter}"A particle tracking detector system."){record_delimiter}
-("entity"{tuple_delimiter}"TBPS"{tuple_delimiter}"product"{tuple_delimiter}"A sub-detector within the tracking detector system at the CMS experiment."){record_delimiter}
-("entity"{tuple_delimiter}"Interconnection Ring"{tuple_delimiter}"product"{tuple_delimiter}"A component that joins the three concentric layers of the TBPS sub-detector."){record_delimiter}
+("entity"{tuple_delimiter}"LHC"{tuple_delimiter}"device"{tuple_delimiter}"A particle accelerator at CERN."){record_delimiter}
+("entity"{tuple_delimiter}"tracking detector system"{tuple_delimiter}"device"{tuple_delimiter}"A particle tracking detector system."){record_delimiter}
+("entity"{tuple_delimiter}"TBPS"{tuple_delimiter}"device"{tuple_delimiter}"A sub-detector within the tracking detector system at the CMS experiment."){record_delimiter}
+("entity"{tuple_delimiter}"Interconnection Ring"{tuple_delimiter}"device"{tuple_delimiter}"A component that joins the three concentric layers of the TBPS sub-detector."){record_delimiter}
 ("entity"{tuple_delimiter}"carbon-fibre/foam composites"{tuple_delimiter}"material_or_substance"{tuple_delimiter}"Light, stiff and dimensionally stable construction material."){record_delimiter}
 ("relationship"{tuple_delimiter}"LHC"{tuple_delimiter}"CERN"{tuple_delimiter}"CERN's LHC accelerator is a particle accelerator at CERN."{tuple_delimiter}"scientific research, accelerator, particle physics"{tuple_delimiter}10){record_delimiter}
 ("relationship"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"LHC"{tuple_delimiter}"The CMS particle physics research experiment at the LHC accelerator."{tuple_delimiter}"scientific research, particle physics"{tuple_delimiter}10){record_delimiter}

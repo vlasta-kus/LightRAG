@@ -956,6 +956,27 @@ class LightRAG:
                                 )
                             }
 
+                            # Store document and chunks in Neo4j
+                            doc_data = {
+                                "content": status_doc.content,
+                                "content_summary": status_doc.content_summary,
+                                "content_length": status_doc.content_length,
+                                "created_at": status_doc.created_at,
+                                "updated_at": datetime.now(timezone.utc).isoformat(),
+                                "file_path": file_path,
+                                "chunks": [
+                                    {
+                                        "id": chunk_id,
+                                        "content": chunk_data["content"],
+                                        "tokens": chunk_data["tokens"],
+                                        "chunk_order_index": chunk_data.get("chunk_order_index", 0),
+                                        "file_path": file_path
+                                    }
+                                    for chunk_id, chunk_data in chunks.items()
+                                ]
+                            }
+                            await self.chunk_entity_relation_graph.upsert_document(doc_id, doc_data)
+
                             # Process document (text chunks and full docs) in parallel
                             # Create tasks with references for potential cancellation
                             doc_status_task = asyncio.create_task(
@@ -976,7 +997,6 @@ class LightRAG:
                                     }
                                 )
                             )
-                            ### TO DO: a task to add chunks & docs storage to a graph (and then attach entities based on mesh ID)
                             chunks_vdb_task = asyncio.create_task(
                                 self.chunks_vdb.upsert(chunks)
                             )

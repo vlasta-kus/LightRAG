@@ -66,14 +66,14 @@ async def initialize_rag():
         llm_model_name="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
         entity_extract_max_gleaning=1,
         embedding_func=EmbeddingFunc(
-            #embedding_dim=1024, max_token_size=8192, func=bedrock_embed
-            embedding_dim=1024, max_token_size=2048, func=lambda texts: bedrock_embed(texts, model="cohere.embed-english-v3")
+            embedding_dim=1024, max_token_size=8192, func=bedrock_embed
+            #embedding_dim=1024, max_token_size=2048, func=lambda texts: bedrock_embed(texts, model="cohere.embed-english-v3")
         ),
         graph_storage="Neo4JStorage",
         vector_storage="MilvusVectorDBStorage",
         vector_db_storage_cls_kwargs={"cosine_better_than_threshold": 0.2},
-        chunk_token_size=160,  # To create chunks under 2048 characters, which is a hard limit for Cohere embedding model -> Titan embeddings? https://docs.aws.amazon.com/bedrock/latest/userguide/titan-embedding-models.html
-        chunk_overlap_token_size=16,
+        chunk_token_size=1200,
+        chunk_overlap_token_size=100,
         enable_llm_cache=False,
         enable_llm_cache_for_entity_extract=False,
         addon_params={
@@ -112,7 +112,7 @@ def main(task: Literal["ingest", "query"]):
     #    asyncio.run(rag.doc_status.delete([doc_id]))
 
     ### Clear all DBs
-    #asyncio.run(clear_all_data(rag)) ### Careful here!!! ###
+    asyncio.run(clear_all_data(rag)) ### Careful here!!! ###
 
     if task == "ingest":
         dir = "data"
@@ -154,4 +154,4 @@ def main(task: Literal["ingest", "query"]):
 
 
 if __name__ == "__main__":
-    main(task="query")
+    main(task="ingest")
