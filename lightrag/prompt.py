@@ -12,10 +12,12 @@ PROMPTS["DEFAULT_COMPLETION_DELIMITER"] = "<|COMPLETE|>"
 
 #"product (anything produced/sold, e.g. machines, tools, components, substances etc.)"
 PROMPTS["DEFAULT_ENTITY_TYPES"] = [
-    "organization", "person_or_title", "document (id or title of any document)", 
+    "organization", "person_or_title", "document (id or title of any concrete physical or electronic document)", 
     "process (a process, procedure, plan, or any set of steps/tasks; e.g. change management process, Corrective Procedure etc.)", 
     "task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.)", 
-    "device (any kind of machine, device, tool, component ...)", "object (any kind of physical object that is not a device)", "material_or_substance", 
+    "device (any kind of machine, device, tool, device component ...)", 
+    "object (any kind of physical object not used to do work)", 
+    "material_or_substance", 
     "other (any other relevant specific manufacturing-related entity)"
 ]
 
@@ -65,7 +67,7 @@ Output:"""
 PROMPTS["entity_extraction_examples"] = [
     """Example 1:
 
-Entity_types: [document (name or title of any kind of document), process (a process, procedure, plan, or any set of steps/tasks; e.g. change management process, Corrective Procedure etc.), task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.), other]
+Entity_types: [document (id or title of any concrete physical or electronic document), process (a process, procedure, plan, or any set of steps/tasks; e.g. change management process, Corrective Procedure etc.), task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.), other]
 Text:
 ```
 Emphasis shall be put on preventive maintenance, to ensure equipment operates without unexpected down time or error. Correcting a fault in a machine after it breaks is considered repair, and not maintenance. The purpose of a robust preventive maintenance program is to eliminate 
@@ -85,7 +87,7 @@ Output:
 ("entity"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"process"{tuple_delimiter}"Aims to eliminate unscheduled repairs and downtime through proactive measures."){record_delimiter}
 ("entity"{tuple_delimiter}"machine repair"{tuple_delimiter}"task"{tuple_delimiter}"Correcting a fault after a machine breaks."){record_delimiter}
 ("entity"{tuple_delimiter}"Preventive Maintenance Log"{tuple_delimiter}"document"{tuple_delimiter}"Records of Preventive Maintenance tasks performed on weekly or greater basis."){record_delimiter}
-("entity"{tuple_delimiter}"manufacturer's guidelines"{tuple_delimiter}"document"{tuple_delimiter}"Recommended maintenance procedures that serve as the basis for machine and equipment maintenance."){record_delimiter}
+("entity"{tuple_delimiter}"manufacturer's guidelines"{tuple_delimiter}"process"{tuple_delimiter}"Recommended maintenance procedures issued by manufacturers that serve as the basis for machine and equipment maintenance."){record_delimiter}
 ("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"machine repair"{tuple_delimiter}"Preventive Maintenance is designed to reduce the need for repair and down time by addressing issues before failure occurs."{tuple_delimiter}"prevention vs correction, operational strategy, maintenance"{tuple_delimiter}9){record_delimiter}
 ("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"Preventive Maintenance Log"{tuple_delimiter}"Records of Preventive Maintenance tasks must be kept, containing at a minimum Type of device, Manufacturer, Model number, Serial number."{tuple_delimiter}"documentation requirements, compliance tracking"{tuple_delimiter}10){record_delimiter}
 ("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"manufacturer's guidelines"{tuple_delimiter}"Preventive Maintenance activities are based on manufacturer’s guidelines and internal company needs. They ensure equipment reliability, production quality, etc."{tuple_delimiter}"maintenance guidelines, customization"{tuple_delimiter}10){record_delimiter}
@@ -93,7 +95,7 @@ Output:
 #############################""",
     """Example 2:
 
-Entity_types: [organization, process (formal process/procedure), task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.), device (any kind of machine, device, tool, component ...), object (any kind of physical object that is not a product), material_or_substance]
+Entity_types: [organization, process (a process, procedure, plan, or any set of steps/tasks), task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.), device (any kind of machine, device, tool, component ...), object (any kind of physical object that is not a product), material_or_substance]
 Text:
 ```
 CERN, the European Organization for Nuclear Research, has a seat is in Geneva but its premises are located on both sides of the French-Swiss border. CERN’s mission is to enable international collaboration in the field of high-energy particle physics research.
