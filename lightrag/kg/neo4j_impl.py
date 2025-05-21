@@ -14,7 +14,7 @@ from tenacity import (
 )
 
 import logging
-from prompt import GRAPH_FIELD_SEP
+from lightrag.prompt import GRAPH_FIELD_SEP
 from ..utils import logger
 from ..base import BaseGraphStorage
 from ..types import KnowledgeGraph, KnowledgeGraphNode, KnowledgeGraphEdge
@@ -281,7 +281,7 @@ class Neo4JStorage(BaseGraphStorage):
                 raise
 
     async def get_node(self, node_id: str, case_insensitive: bool = False) -> dict[str, str] | None:
-        """Get node by its label identifier, return only node properties
+        """Get node by its label identifier, return only node properties except `embedding` one
 
         Args:
             node_id: The node label to look up
@@ -321,6 +321,8 @@ class Neo4JStorage(BaseGraphStorage):
                                 for label in node_dict["labels"]
                                 if label != "base"
                             ]
+                        # Remove embedding field if it exists
+                        node_dict.pop("embedding", None)
                         logger.debug(f"Neo4j query node {query} return: {node_dict}")
                         return node_dict
                     return None
@@ -359,6 +361,8 @@ class Neo4JStorage(BaseGraphStorage):
                     node_dict["labels"] = [
                         label for label in node_dict["labels"] if label != "base"
                     ]
+                # Remove embedding field if it exists
+                node_dict.pop("embedding", None)
                 nodes[entity_id] = node_dict
             await result.consume()  # Make sure to consume the result fully
             return nodes
@@ -526,6 +530,8 @@ class Neo4JStorage(BaseGraphStorage):
                     if records:
                         try:
                             edge_result = dict(records[0]["edge_properties"])
+                            # Remove embedding field if it exists
+                            edge_result.pop("embedding", None)
                             logger.debug(f"Result: {edge_result}")
                             # Ensure required keys exist with defaults
                             required_keys = {
@@ -601,6 +607,8 @@ class Neo4JStorage(BaseGraphStorage):
                 edges = record["edges"]
                 if edges and len(edges) > 0:
                     edge_props = edges[0]  # choose the first if multiple exist
+                    # Remove embedding field if it exists
+                    edge_props.pop("embedding", None)
                     # Ensure required keys exist with defaults
                     for key, default in {
                         "weight": 0.0,

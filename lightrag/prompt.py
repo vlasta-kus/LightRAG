@@ -10,14 +10,14 @@ PROMPTS["DEFAULT_TUPLE_DELIMITER"] = "<|>"
 PROMPTS["DEFAULT_RECORD_DELIMITER"] = "##"
 PROMPTS["DEFAULT_COMPLETION_DELIMITER"] = "<|COMPLETE|>"
 
-#PROMPTS["DEFAULT_ENTITY_TYPES"] = ["organization", "person_or_title", "document_form_record", "event_or_process", "activity_or_project", "product_or_device", "equipment_tool_component", "material_or_substance", "object", "other"]
 #"product (anything produced/sold, e.g. machines, tools, components, substances etc.)"
 PROMPTS["DEFAULT_ENTITY_TYPES"] = [
     "organization", "person_or_title", "document (id or title of any document)", 
     "process (a process, procedure, plan, or any set of steps/tasks; e.g. change management process, Corrective Procedure etc.)", 
     "task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.)", 
     "device (any kind of machine, device, tool, component ...)", "object (any kind of physical object that is not a device)", "material_or_substance", 
-    "other (any other relevant specific manufacturing-related entity)"]
+    "other (any other relevant specific manufacturing-related entity)"
+]
 
 PROMPTS["DEFAULT_USER_PROMPT"] = "n/a"
 
@@ -65,7 +65,7 @@ Output:"""
 PROMPTS["entity_extraction_examples"] = [
     """Example 1:
 
-Entity_types: [document (name or title of any kind of document), task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.), other]
+Entity_types: [document (name or title of any kind of document), process (a process, procedure, plan, or any set of steps/tasks; e.g. change management process, Corrective Procedure etc.), task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.), other]
 Text:
 ```
 Emphasis shall be put on preventive maintenance, to ensure equipment operates without unexpected down time or error. Correcting a fault in a machine after it breaks is considered repair, and not maintenance. The purpose of a robust preventive maintenance program is to eliminate 
@@ -82,7 +82,7 @@ Those that are done daily, hourly, “before use” or at a more frequent basis,
 ```
 
 Output:
-("entity"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"task"{tuple_delimiter}"Aims to eliminate unscheduled repairs and downtime through proactive measures."){record_delimiter}
+("entity"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"process"{tuple_delimiter}"Aims to eliminate unscheduled repairs and downtime through proactive measures."){record_delimiter}
 ("entity"{tuple_delimiter}"machine repair"{tuple_delimiter}"task"{tuple_delimiter}"Correcting a fault after a machine breaks."){record_delimiter}
 ("entity"{tuple_delimiter}"Preventive Maintenance Log"{tuple_delimiter}"document"{tuple_delimiter}"Records of Preventive Maintenance tasks performed on weekly or greater basis."){record_delimiter}
 ("entity"{tuple_delimiter}"manufacturer's guidelines"{tuple_delimiter}"document"{tuple_delimiter}"Recommended maintenance procedures that serve as the basis for machine and equipment maintenance."){record_delimiter}
@@ -111,9 +111,9 @@ Output:
 ("entity"{tuple_delimiter}"TBPS"{tuple_delimiter}"device"{tuple_delimiter}"A sub-detector within the tracking detector system at the CMS experiment."){record_delimiter}
 ("entity"{tuple_delimiter}"Interconnection Ring"{tuple_delimiter}"device"{tuple_delimiter}"A component that joins the three concentric layers of the TBPS sub-detector."){record_delimiter}
 ("entity"{tuple_delimiter}"carbon-fibre/foam composites"{tuple_delimiter}"material_or_substance"{tuple_delimiter}"Light, stiff and dimensionally stable construction material."){record_delimiter}
-("relationship"{tuple_delimiter}"LHC"{tuple_delimiter}"CERN"{tuple_delimiter}"CERN's LHC accelerator is a particle accelerator at CERN."{tuple_delimiter}"scientific research, accelerator, particle physics"{tuple_delimiter}10){record_delimiter}
+("relationship"{tuple_delimiter}"LHC"{tuple_delimiter}"CERN"{tuple_delimiter}"LHC accelerator is a particle accelerator at CERN."{tuple_delimiter}"scientific research, accelerator, particle physics"{tuple_delimiter}10){record_delimiter}
 ("relationship"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"LHC"{tuple_delimiter}"The CMS particle physics research experiment at the LHC accelerator."{tuple_delimiter}"scientific research, particle physics"{tuple_delimiter}10){record_delimiter}
-("relationship"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"A major planned modification of the CMS experiment."{tuple_delimiter}"device upgrade"{tuple_delimiter}10){record_delimiter}
+("relationship"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"CMS Phase 2 Upgrade is a major planned modification of the CMS experiment."{tuple_delimiter}"device upgrade"{tuple_delimiter}10){record_delimiter}
 ("relationship"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"tracking detector system"{tuple_delimiter}"A new particle tracking detector system shall be built as part of the CMS Phase 2 Upgrade."{tuple_delimiter}"system upgrade, particle detector"{tuple_delimiter}9){record_delimiter}
 ("relationship"{tuple_delimiter}"tracking detector system"{tuple_delimiter}"TBPS"{tuple_delimiter}"TBPS is a sub-detector of the particle tracking detector system at the CMS experiment."{tuple_delimiter}"particle detector, device subsystem"{tuple_delimiter}9){record_delimiter}
 ("relationship"{tuple_delimiter}"TBPS"{tuple_delimiter}"Interconnection Ring"{tuple_delimiter}"TBPS includes 12 Interconnection Rings that connect its three concentric layers."{tuple_delimiter}"structural component, subsystem integration"{tuple_delimiter}10){record_delimiter}
