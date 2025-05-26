@@ -442,7 +442,7 @@ class Neo4JStorage(BaseGraphStorage):
                     logger.warning(f"No node found with label '{nid}'")
                     degrees[nid] = 0
 
-            logger.debug(f"Neo4j batch node degree query returned: {degrees}")
+            #logger.debug(f"Neo4j batch node degree query returned: {degrees}")
             return degrees
 
     async def edge_degree(self, src_id: str, tgt_id: str) -> int:

@@ -180,12 +180,6 @@ async def _handle_single_entity_extraction(
     entity_description = clean_str(record_attributes[3])
     entity_description = normalize_extracted_info(entity_description)
 
-    if not entity_description.strip():
-        logger.warning(
-            f"Entity extraction error: empty description for entity '{entity_name}' of type '{entity_type}'"
-        )
-        return None
-
     return dict(
         entity_name=entity_name,
         entity_type=entity_type,
@@ -265,7 +259,8 @@ async def _merge_nodes_then_upsert(
         already_file_paths.extend(
             split_string_by_multi_markers(already_node["file_path"], [GRAPH_FIELD_SEP])
         )
-        already_description.append(already_node["description"])
+        if len(already_node["description"].strip()) > 0:
+            already_description.append(already_node["description"])
 
     entity_type = sorted(
         Counter(
@@ -275,7 +270,7 @@ async def _merge_nodes_then_upsert(
         reverse=True,
     )[0][0]
     description = GRAPH_FIELD_SEP.join(
-        sorted(set([dp["description"] for dp in nodes_data] + already_description))
+        sorted(set([dp["description"] for dp in nodes_data if len(dp["description"].strip()) > 0] + already_description))
     )
     source_id = GRAPH_FIELD_SEP.join(
         set([dp["source_id"] for dp in nodes_data] + already_source_ids)
@@ -1300,12 +1295,18 @@ async def _build_query_context(
         entities_context = process_combine_contexts(
             hl_entities_context, ll_entities_context, vector_entities_context
         )
+        logger.debug(f"Final number of entities: {len(entities_context)}")
+
         relations_context = process_combine_contexts(
             hl_relations_context, ll_relations_context, vector_relations_context
         )
+        logger.debug(f"Final number of relations: {len(relations_context)}")
+
         text_units_context = process_combine_contexts(
             hl_text_units_context, ll_text_units_context, vector_text_units_context
         )
+        logger.debug(f"Final number of chunks: {len(text_units_context)}")
+
     # not necessary to use LLM to generate a response
     if not entities_context and not relations_context:
         return None
@@ -1352,6 +1353,7 @@ async def _get_node_data(
     results = await entities_vdb.query(
         query, top_k=query_param.top_k, ids=query_param.ids
     )
+    logger.info(f"Vector search found {len(results)} entities")
 
     if not len(results):
         return "", "", ""
@@ -1408,7 +1410,9 @@ async def _get_node_data(
     )
 
     logger.info(
-        f"Local query uses {len(node_datas)} entites, {len(use_relations)} relations, {len(use_text_units)} chunks"
+        f"Node search: Local query uses {len(node_datas)} entites, {len(use_relations)} relations, {len(use_text_units)} chunks\n" \
+        f"Matched entities: {[x['entity_id'] for x in node_datas]}\n" \
+        f"Matched relations: {[x['src_tgt'] for x in use_relations]}"
     )
 
     # build prompt
@@ -1655,6 +1659,7 @@ async def _get_edge_data(
     results = await relationships_vdb.query(
         keywords, top_k=query_param.top_k, ids=query_param.ids
     )
+    logger.info(f"Vector search found {len(results)} edges")
 
     if not len(results):
         return "", "", ""
@@ -1717,7 +1722,9 @@ async def _get_edge_data(
         ),
     )
     logger.info(
-        f"Global query uses {len(use_entities)} entites, {len(edge_datas)} relations, {len(use_text_units)} chunks"
+        f"Edge search: Global query uses {len(use_entities)} entites, {len(edge_datas)} relations, {len(use_text_units)} chunks\n" \
+        f"Matched entities: {[x['entity_id'] for x in use_entities]}\n" \
+        f"Matched relations: {[(x['src_id'], x['tgt_id']) for x in edge_datas]}"
     )
 
     relations_context = []

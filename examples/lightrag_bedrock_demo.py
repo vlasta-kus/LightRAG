@@ -12,7 +12,6 @@ from dotenv import load_dotenv
 # Add the parent directory to Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from lightrag.base import DocStatus
 from lightrag import LightRAG, QueryParam
 from lightrag.llm.bedrock import bedrock_complete, bedrock_embed
 from lightrag.utils import EmbeddingFunc
@@ -103,55 +102,68 @@ async def clear_all_data(rag):
 def main(task: Literal["ingest", "query"]):
     rag = asyncio.run(initialize_rag())
     #asyncio.run(rag.aclear_cache())
-    
-    # Get documents with failed status
-    #failed_docs = asyncio.run(rag.get_docs_by_status(DocStatus.FAILED))
-
-    # Delete the failed documents
-    #for doc_id in failed_docs:
-    #    asyncio.run(rag.doc_status.delete([doc_id]))
 
     ### Clear all DBs
-    asyncio.run(clear_all_data(rag)) ### Careful here!!! ###
+    #asyncio.run(clear_all_data(rag)) ### Careful here!!! ###
 
     if task == "ingest":
-        dir = "data"
+        #dir = "data"
+        dir = "data/CERN"
         print(f"Ingesting documents from {dir} ...")
 
         json_files = get_json_files(dir)
         print(f"Found {len(json_files)} JSON files")
 
-        for file in json_files:
-            print(f"Processing file: {file}")
-            file_id = file.split("/", 1)[1]
-            print(f"  File ID: {file_id}")
-            with open(file, "r", encoding="utf-8") as f:
-                text_obj = json.load(f)
-            text = text_obj['content'].strip()
-            print(f"  Text character length: {len(text)}")
-            rag.insert(input=text, ids=file_id, file_paths=file_id)
-            print(f"Finished processing document: {file}")
+        # Process files in batches of 5
+        batch_size = 5
+        for i in range(0, len(json_files), batch_size):
+            batch = json_files[i:i + batch_size]
+            print(f"\n=== Processing batch {i//batch_size + 1} of {(len(json_files) + batch_size - 1)//batch_size}")
+            
+            batch_texts = []
+            batch_ids = []
+            batch_paths = []
+            
+            for file in batch:
+                print(f"Processing file: {file}")
+                file_id = file.split("/", 1)[1]
+                print(f"  File ID: {file_id}")
+                with open(file, "r", encoding="utf-8") as f:
+                    text_obj = json.load(f)
+                text = text_obj['content'].strip()
+                print(f"  Text character length: {len(text)}")
+                
+                batch_texts.append(text)
+                batch_ids.append(file_id)
+                batch_paths.append(file_id)
+            
+            # Insert the batch
+            rag.insert(input=batch_texts, ids=batch_ids, file_paths=batch_paths)
+            
+            print(f"Finished processing batch. Files remaining: {len(json_files) - (i * batch_size + len(batch))}")
 
     elif task == "query":
-        query = "What are the top themes in this dataset?"
-        #query = "What role does CNC play in product quality?"
-        #query = "How can employees improve product quality?"
+        #query = "What are the top themes in this dataset?"
+        query = "What role does CNC play in product quality?"
         #query = "What's the impact of legacy equipment?"
         #query = "How is failed equipment handled at Formtech in relation to ISO standards?"
+        query = "While inspecting and measuring the CERN components, we are finding that we are getting varying results from the laser scanner, how to deal with possible equipment failure?"
+        query = "Give me a summary of the latest  developments and issues with the CERN project."
         print(f"\n--- Querying: {query}\n")
 
-        for mode in ["naive", "hybrid"]: #"local", "global", 
+        for mode in ["hybrid"]: # "naive", "local", "global", 
             print("\n\n+-" + "-" * len(mode) + "-+")
             print(f"| {mode.capitalize()} |")
             print("+-" + "-" * len(mode) + "-+\n")
-            print(rag.query(
-                 query, 
-                 param=QueryParam(
-                      mode=mode, 
-                      stream=False, # bedrock does not support streaming as OpenAI does
-                      )
-                 )) 
-
+            answer = rag.query(
+                query, 
+                param=QueryParam(
+                    mode=mode, 
+                    stream=False, # bedrock does not support streaming as OpenAI does
+                    )
+                )
+            print(f"\n--- Query: {query}")
+            print(f"--- Answer: {answer}")
 
 if __name__ == "__main__":
     main(task="ingest")

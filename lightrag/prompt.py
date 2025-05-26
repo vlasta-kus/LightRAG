@@ -24,31 +24,38 @@ PROMPTS["DEFAULT_ENTITY_TYPES"] = [
 PROMPTS["DEFAULT_USER_PROMPT"] = "n/a"
 
 PROMPTS["entity_extraction"] = """---Goal---
-Given a text document that is potentially relevant to this activity and a list of entity types, identify all entities of those types from the text and all relationships among the identified entities.
+Given a text document that is potentially relevant to building a Knowledge Graph in manufacturing domain and a list of entity types, identify all relevant entities and relationships among the entities. 
+The KG will be built from data from different manufacturing projects with sometimes overlapping concepts (entities).
 Use {language} as output language.
 
 ---Steps---
-1. Identify all entities. For each identified entity, extract the following information:
-- entity_name: Name of the entity, use same language as input text. Avoid too generic entity names (e.g. "machine"), always attempt to identify concrete full entity name from the context (e.g. "cooling machine")!
-- entity_type: One of the following types (optionally with descriptions or examples in the round brackets): [{entity_types}]
-- entity_description: Comprehensive description of the entity's attributes and activities; must be grounded in the text, don't make it up!
+1. Read the input text and the provided list of entity types. Consider carefully which concepts and information to model as KG entities and which as relationships, and which detailed information to consider an attribute of an entity vs an attribute of a relationship.
+- entities should have specific names - avoid creation of super nodes like "machine" or "responsible"
+- entity attributes / descriptions should be usable and useful across documents from different (but often partly related) manufacturing projects; for example, multiple projects will likely have Predictive Maintenance process node, but different project-specific details - put those details to relationships
+- edges represent specific details of a relation between two entities based on the current input text / project
+The goal is to build a multi-project KG and avoid information duplicates where possible.
+
+2. Identify all entities according to the list of entity types and extract the following information:
+- entity_name: Name of the entity, use same language as input text. Avoid too generic entity names: always attempt to identify concrete full entity name based on the whole context!
+- entity_type: One of the following types (here stated optionally with descriptions or examples in the round brackets): [{entity_types}]
+- entity_description: Straightforward brief description of the entity and its key general attributes that are relevant across different data sources. More specific details (such as (sub)project specific) belong to the descriptions of relationships from the following step. The entity description must always be grounded in the text, don't make it up! If no such description can be generated, output an empty string.
 Format each entity as ("entity"{tuple_delimiter}<entity_name>{tuple_delimiter}<entity_type>{tuple_delimiter}<entity_description>)
 
-2. From the entities identified in step 1, identify all pairs of (source_entity, target_entity) that are *clearly related* to each other.
+3. From the entities identified in step 1, identify all pairs of (source_entity, target_entity) that are *clearly related* to each other.
 For each pair of related entities, extract the following information:
 - source_entity: name of the source entity, as identified in step 1
 - target_entity: name of the target entity, as identified in step 1
-- relationship_description: explanation as to why you think the source entity and the target entity are related to each other; must be grounded in the text, don't make it up!
-- relationship_strength: a numeric score (1-10) indicating strength of the relationship between the source entity and target entity
+- relationship_description: explanation how the source and target entities are related (specific details; example: a date of commencing work on a new device); must always be grounded in the text, don't make it up!
+- relationship_strength: a numeric score (1 to 10) indicating strength of the relationship between the source entity and target entity
 - relationship_keywords: one or more high-level key words that summarize the overarching nature of the relationship, focusing on concepts or themes rather than specific details
 Format each relationship as ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_keywords>{tuple_delimiter}<relationship_strength>)
 
-3. Identify high-level keywords that summarize the main concepts, themes, or topics of the entire text. These should capture the overarching ideas present in the document.
+4. Identify high-level keywords that summarize the main concepts, themes, or topics of the entire text. These should capture the overarching ideas present in the document.
 Format the content-level keywords as ("content_keywords"{tuple_delimiter}<high_level_keywords>)
 
-4. Return output in {language} as a single list of all the entities and relationships identified in steps 1 and 2. Use **{record_delimiter}** as the list delimiter.
+5. Return output in {language} as a single list of all the entities and relationships identified in steps 1 and 2. Use **{record_delimiter}** as the list delimiter.
 
-5. When finished, output {completion_delimiter}
+6. When finished, output {completion_delimiter}
 
 ######################
 ---Examples---
@@ -67,7 +74,7 @@ Output:"""
 PROMPTS["entity_extraction_examples"] = [
     """Example 1:
 
-Entity_types: [document (id or title of any concrete physical or electronic document), process (a process, procedure, plan, or any set of steps/tasks; e.g. change management process, Corrective Procedure etc.), task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.), other]
+Entity_types: [document (id or title of any concrete physical or electronic document), person_or_title, process (a process, procedure, plan, or any set of steps/tasks; e.g. change management process, Corrective Procedure etc.), task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.), other]
 Text:
 ```
 Emphasis shall be put on preventive maintenance, to ensure equipment operates without unexpected down time or error. Correcting a fault in a machine after it breaks is considered repair, and not maintenance. The purpose of a robust preventive maintenance program is to eliminate 
@@ -87,7 +94,7 @@ Output:
 ("entity"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"process"{tuple_delimiter}"Aims to eliminate unscheduled repairs and downtime through proactive measures."){record_delimiter}
 ("entity"{tuple_delimiter}"machine repair"{tuple_delimiter}"task"{tuple_delimiter}"Correcting a fault after a machine breaks."){record_delimiter}
 ("entity"{tuple_delimiter}"Preventive Maintenance Log"{tuple_delimiter}"document"{tuple_delimiter}"Records of Preventive Maintenance tasks performed on weekly or greater basis."){record_delimiter}
-("entity"{tuple_delimiter}"manufacturer's guidelines"{tuple_delimiter}"process"{tuple_delimiter}"Recommended maintenance procedures issued by manufacturers that serve as the basis for machine and equipment maintenance."){record_delimiter}
+("entity"{tuple_delimiter}"manufacturer's guidelines"{tuple_delimiter}"process"{tuple_delimiter}"Recommended processes issued by manufacturers that serve as the basis for machine and equipment maintenance."){record_delimiter}
 ("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"machine repair"{tuple_delimiter}"Preventive Maintenance is designed to reduce the need for repair and down time by addressing issues before failure occurs."{tuple_delimiter}"prevention vs correction, operational strategy, maintenance"{tuple_delimiter}9){record_delimiter}
 ("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"Preventive Maintenance Log"{tuple_delimiter}"Records of Preventive Maintenance tasks must be kept, containing at a minimum Type of device, Manufacturer, Model number, Serial number."{tuple_delimiter}"documentation requirements, compliance tracking"{tuple_delimiter}10){record_delimiter}
 ("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"manufacturer's guidelines"{tuple_delimiter}"Preventive Maintenance activities are based on manufacturer’s guidelines and internal company needs. They ensure equipment reliability, production quality, etc."{tuple_delimiter}"maintenance guidelines, customization"{tuple_delimiter}10){record_delimiter}
@@ -95,31 +102,51 @@ Output:
 #############################""",
     """Example 2:
 
-Entity_types: [organization, process (a process, procedure, plan, or any set of steps/tasks), task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.), device (any kind of machine, device, tool, component ...), object (any kind of physical object that is not a product), material_or_substance]
+Entity_types: [organization, process (a process, procedure, plan, or any set of steps/tasks), task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.), device (any kind of machine, device, tool, component ...), object (any kind of physical object that is not a product), material_or_substance, other]
 Text:
 ```
 CERN, the European Organization for Nuclear Research, has a seat is in Geneva but its premises are located on both sides of the French-Swiss border. CERN’s mission is to enable international collaboration in the field of high-energy particle physics research.
 The Compact Muon Solenoid (CMS, https://home.cern/science/experiments/cms) experiment, located in CERN’s LHC accelerator, will undergo a major modification, the CMS Phase 2 Upgrade.
-A new tracking detector system shall be constructed, with one of the sub-detectors being TBPS. The TBPS will contain 12 Interconnection Rings that join the three concentric layers of the TBPS. For physics measurement reasons the TBPS structures shall be light,
+A new tracking detector system shall be constructed, with one of the sub-detectors being TBPS, whose design is the subject of this document. The TBPS will contain 12 laminated Interconnection Rings that join the three concentric layers of the TBPS. For physics measurement reasons the TBPS structures shall be light,
 stiff and dimensionally stable, leading the material choice to cutting edge composites, such as carbon-fibre/foam structures.
+...
+
+## 2.3 Inspection Tools
+Redwire will utilise various inspection tools in the validation of the TBPS rings:
+* Trimos high accuracy digital height gauge
+* Nikon 3D precision laser scanner
+...
+
+## 3. Final Sign Off
+Name: John Snow
+Job Title: Project Manager
+Date (expected): 19/10/1918
 ```
 
 Output:
 ("entity"{tuple_delimiter}"CERN"{tuple_delimiter}"organization"{tuple_delimiter}"CERN, the European Organization for Nuclear Research, headquartered in Geneva, enables high-energy particle physics research."){record_delimiter}
 ("entity"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"device"{tuple_delimiter}"A particle physics experiment at CERN's LHC accelerator."){record_delimiter}
-("entity"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"task"{tuple_delimiter}"A major modification of the Compact Muon Solenoid experiment."){record_delimiter}
+("entity"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"task"{tuple_delimiter}"A major modification of the CMS experiment."){record_delimiter}
 ("entity"{tuple_delimiter}"LHC"{tuple_delimiter}"device"{tuple_delimiter}"A particle accelerator at CERN."){record_delimiter}
-("entity"{tuple_delimiter}"tracking detector system"{tuple_delimiter}"device"{tuple_delimiter}"A particle tracking detector system."){record_delimiter}
-("entity"{tuple_delimiter}"TBPS"{tuple_delimiter}"device"{tuple_delimiter}"A sub-detector within the tracking detector system at the CMS experiment."){record_delimiter}
-("entity"{tuple_delimiter}"Interconnection Ring"{tuple_delimiter}"device"{tuple_delimiter}"A component that joins the three concentric layers of the TBPS sub-detector."){record_delimiter}
+("entity"{tuple_delimiter}"TBPS"{tuple_delimiter}"device"{tuple_delimiter}"A sub-detector within the tracking detector system at the CMS experiment at CERN."){record_delimiter}
+("entity"{tuple_delimiter}"Interconnection Ring"{tuple_delimiter}"device"{tuple_delimiter}"A laminated component that joins the three concentric layers of the TBPS sub-detector."){record_delimiter}
 ("entity"{tuple_delimiter}"carbon-fibre/foam composites"{tuple_delimiter}"material_or_substance"{tuple_delimiter}"Light, stiff and dimensionally stable construction material."){record_delimiter}
+("entity"{tuple_delimiter}"Redwire"{tuple_delimiter}"organization"{tuple_delimiter}""){record_delimiter}
+("entity"{tuple_delimiter}"Trimos height gauge"{tuple_delimiter}"device"{tuple_delimiter}"High accuracy digital height gauge."){record_delimiter}
+("entity"{tuple_delimiter}"Nikon 3D laser scanner"{tuple_delimiter}"device"{tuple_delimiter}"Precision laser scanner."){record_delimiter}
+("entity"{tuple_delimiter}"In-Process Inspection"{tuple_delimiter}"process"{tuple_delimiter}""){record_delimiter}
+("entity"{tuple_delimiter}"John Snow"{tuple_delimiter}"person_or_title"{tuple_delimiter}"John Snow is a Project Manager."){record_delimiter}
 ("relationship"{tuple_delimiter}"LHC"{tuple_delimiter}"CERN"{tuple_delimiter}"LHC accelerator is a particle accelerator at CERN."{tuple_delimiter}"scientific research, accelerator, particle physics"{tuple_delimiter}10){record_delimiter}
 ("relationship"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"LHC"{tuple_delimiter}"The CMS particle physics research experiment at the LHC accelerator."{tuple_delimiter}"scientific research, particle physics"{tuple_delimiter}10){record_delimiter}
-("relationship"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"CMS Phase 2 Upgrade is a major planned modification of the CMS experiment."{tuple_delimiter}"device upgrade"{tuple_delimiter}10){record_delimiter}
-("relationship"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"tracking detector system"{tuple_delimiter}"A new particle tracking detector system shall be built as part of the CMS Phase 2 Upgrade."{tuple_delimiter}"system upgrade, particle detector"{tuple_delimiter}9){record_delimiter}
-("relationship"{tuple_delimiter}"tracking detector system"{tuple_delimiter}"TBPS"{tuple_delimiter}"TBPS is a sub-detector of the particle tracking detector system at the CMS experiment."{tuple_delimiter}"particle detector, device subsystem"{tuple_delimiter}9){record_delimiter}
+("relationship"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"CMS Phase 2 Upgrade is a major planned modification of the CMS experiment."{tuple_delimiter}"device upgrade, particle detector"{tuple_delimiter}10){record_delimiter}
+("relationship"{tuple_delimiter}"TBPS"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"TBPS is part of the CMS Phase 2 Upgrade."{tuple_delimiter}"system upgrade, particle detector"{tuple_delimiter}9){record_delimiter}
+("relationship"{tuple_delimiter}"TBPS"{tuple_delimiter}"CMS"{tuple_delimiter}"TBPS will be a sub-detector of the particle tracking detector system at the CMS experiment."{tuple_delimiter}"particle detector, device subsystem"{tuple_delimiter}9){record_delimiter}
 ("relationship"{tuple_delimiter}"TBPS"{tuple_delimiter}"Interconnection Ring"{tuple_delimiter}"TBPS includes 12 Interconnection Rings that connect its three concentric layers."{tuple_delimiter}"structural component, subsystem integration"{tuple_delimiter}10){record_delimiter}
-("relationship"{tuple_delimiter}"TBPS"{tuple_delimiter}"carbon-fibre/foam composites"{tuple_delimiter}"TBPS will be constructed using carbon-fibre/foam composites for lightness, stiffness, and dimensional stability."{tuple_delimiter}"material selection, performance optimization"{tuple_delimiter}10){record_delimiter}
+("relationship"{tuple_delimiter}"TBPS"{tuple_delimiter}"carbon-fibre/foam composites"{tuple_delimiter}"TBPS will be constructed using carbon-fibre/foam composites."{tuple_delimiter}"material selection, performance optimization"{tuple_delimiter}10){record_delimiter}
+("relationship"{tuple_delimiter}"Redwire"{tuple_delimiter}"Interconnection Ring"{tuple_delimiter}"Redwire will inspect the rings."{tuple_delimiter}"inspection, validation"{tuple_delimiter}10){record_delimiter}
+("relationship"{tuple_delimiter}"Interconnection Ring"{tuple_delimiter}"Trimos height gauge"{tuple_delimiter}"The rings will be inspected by a Trimos height gauge."{tuple_delimiter}"inspection, validation"{tuple_delimiter}10){record_delimiter}
+("relationship"{tuple_delimiter}"Interconnection Ring"{tuple_delimiter}"Nikon 3D laser scanner"{tuple_delimiter}"The rings will be inspected by a Nikon 3D laser scanner."{tuple_delimiter}"inspection, validation"{tuple_delimiter}10){record_delimiter}
+("relationship"{tuple_delimiter}"John Snow"{tuple_delimiter}"TBPS"{tuple_delimiter}"The Project Manager John Snow is expected to sign off the TBPS project on 19/10/1918."{tuple_delimiter}"project management"{tuple_delimiter}8){record_delimiter}
 ("content_keywords"{tuple_delimiter}"particle physics, detector upgrade, subsystem design, composite materials"){completion_delimiter}
 #############################""",
     """Example 3:
@@ -148,11 +175,11 @@ Output:
 PROMPTS[
     "summarize_entity_descriptions"
 ] = """You are a helpful assistant responsible for generating a comprehensive summary of the data provided below.
-Given one or two entities, and a list of descriptions, all related to the same entity or group of entities.
-Please concatenate all of these into a single, comprehensive description. Make sure to include information collected from all the descriptions.
+Given one or two entities, and a list of descriptions, all related to the same entity or group of entities,
+concatenate all of these into a single, comprehensive description. Make sure to include information collected from all the descriptions.
 If the provided descriptions are contradictory, please resolve the contradictions and provide a single, coherent summary.
 Make sure it is written in third person, and include the entity names so we the have full context.
-Use {language} as output language.
+Use {language} as output language. Output directly the summary right away, without any other explanatory text.
 
 #######
 ---Data---
@@ -233,11 +260,11 @@ When handling relationships with timestamps:
 
 - Target format and length: {response_type}
 - Use markdown formatting with appropriate section headings
-- Please respond in the same language as the user's question.
+- Respond in the same language as the user's question.
 - Ensure the response maintains continuity with the conversation history.
-- List up to 5 most important reference sources at the end under "References" section. Clearly indicating whether each source is from Knowledge Graph (KG) or Document Chunks (DC), and include the file path if available, in the following format: [KG/DC] file_path
-- If you don't know the answer, just say so.
-- Do not make anything up. Do not include information not provided by the Knowledge Base.
+- List up to 5 most important reference sources at the end under "References" section. Clearly indicating whether each source is from Knowledge Graph (KG) or Document (DOC), and include the file path if available, in the following format: [KG/DOC] file_path
+- If you don't know the answer based on the provided context, just say so.
+- Do not make anything up - always ground the answer in the provided context. Do not include information not provided by the Knowledge Base.
 - Addtional user prompt: {user_prompt}
 
 Response:"""
@@ -283,7 +310,7 @@ Query: "How can I minimize the impact of machine downtime on production?"
 ################
 Output:
 {
-  "high_level_keywords": ["machine downtime", "production efficiency", "operational continuity", "downtime mitigation"],
+  "high_level_keywords": ["machine downtime", "production optimization", "operational continuity", "downtime mitigation"],
   "low_level_keywords": ["machine failure", "root cause analysis", "preventive maintenance", "real-time monitoring", "automation"]
 }
 #############################""",
@@ -299,7 +326,7 @@ Output:
 #############################""",
     """Example 3:
 
-Query: "Give me a summary of the issues on the Volkswagen Aerocovers?"
+Query: "Give me a summary of the issues on the Volkswagen Aerocovers."
 ################
 Output:
 {
