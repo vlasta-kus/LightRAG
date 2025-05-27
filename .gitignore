@@ -1,3 +1,6 @@
+data/
+workdir/
+
 # Python-related files
 __pycache__/
 *.py[cod]

@@ -295,13 +295,13 @@ class BaseGraphStorage(StorageNameSpace, ABC):
         """
 
     @abstractmethod
-    async def has_edge(self, source_node_id: str, target_node_id: str) -> bool:
+    async def has_edge(self, source_node_id: str, target_node_id: str, **kwargs: Any) -> bool:
         """Check if an edge exists between two nodes.
 
         Args:
             source_node_id: The ID of the source node
             target_node_id: The ID of the target node
-
+            **kwargs: Additional keyword arguments
         Returns:
             True if the edge exists, False otherwise
         """
@@ -330,26 +330,26 @@ class BaseGraphStorage(StorageNameSpace, ABC):
         """
 
     @abstractmethod
-    async def get_node(self, node_id: str) -> dict[str, str] | None:
+    async def get_node(self, node_id: str, case_insensitive: bool = False) -> dict[str, str] | None:
         """Get node by its ID, returning only node properties.
 
         Args:
             node_id: The ID of the node to retrieve
-
+            case_insensitive: Whether to perform case-insensitive matching
         Returns:
             A dictionary of node properties if found, None otherwise
         """
 
     @abstractmethod
     async def get_edge(
-        self, source_node_id: str, target_node_id: str
-    ) -> dict[str, str] | None:
+        self, source_node_id: str, target_node_id: str, **kwargs: Any
+    ) -> dict[str, Any] | None:
         """Get edge properties between two nodes.
 
         Args:
             source_node_id: The ID of the source node
             target_node_id: The ID of the target node
-
+            **kwargs: Additional keyword arguments
         Returns:
             A dictionary of edge properties if found, None otherwise
         """
@@ -457,7 +457,7 @@ class BaseGraphStorage(StorageNameSpace, ABC):
 
     @abstractmethod
     async def upsert_edge(
-        self, source_node_id: str, target_node_id: str, edge_data: dict[str, str]
+        self, source_node_id: str, target_node_id: str, edge_data: dict[str, Any]
     ) -> None:
         """Insert a new edge or update an existing edge in the graph.
 
@@ -535,6 +535,14 @@ class BaseGraphStorage(StorageNameSpace, ABC):
             KnowledgeGraph object containing nodes and edges, with an is_truncated flag
             indicating whether the graph was truncated due to max_nodes limit
         """
+
+    async def upsert_document(self, doc_id: str, doc_data: dict[str, Any]) -> None:
+        """Upsert a document node into the graph.
+
+        Args:
+            document: A dictionary containing document data
+        """
+        raise NotImplementedError("upsert_document() is not implemented yet")
 
 
 class DocStatus(str, Enum):

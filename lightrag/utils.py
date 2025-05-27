@@ -1738,7 +1738,7 @@ def normalize_extracted_info(name: str, is_entity=False) -> str:
         name = re.sub(r"['\"]+(?=[\u4e00-\u9fa5])", "", name)
         name = re.sub(r"(?<=[\u4e00-\u9fa5])['\"]+", "", name)
 
-    return name
+    return name.strip()
 
 
 def clean_text(text: str) -> str:

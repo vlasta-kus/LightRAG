@@ -47,10 +47,11 @@ async def bedrock_complete_if_cache(
     os.environ["AWS_SECRET_ACCESS_KEY"] = os.environ.get(
         "AWS_SECRET_ACCESS_KEY", aws_secret_access_key
     )
-    os.environ["AWS_SESSION_TOKEN"] = os.environ.get(
-        "AWS_SESSION_TOKEN", aws_session_token
-    )
+    #os.environ["AWS_SESSION_TOKEN"] = os.environ.get(
+    #    "AWS_SESSION_TOKEN", aws_session_token
+    #)
     kwargs.pop("hashing_kv", None)
+    kwargs.pop("stream", None)  # Remove stream parameter as it's not supported by Bedrock
     # Fix message history format
     messages = []
     for history_message in history_messages:
@@ -85,7 +86,7 @@ async def bedrock_complete_if_cache(
 
     # Call model via Converse API
     session = aioboto3.Session()
-    async with session.client("bedrock-runtime") as bedrock_async_client:
+    async with session.client("bedrock-runtime", region_name="us-east-1") as bedrock_async_client:
         try:
             response = await bedrock_async_client.converse(**args, **kwargs)
         except Exception as e:
@@ -131,12 +132,12 @@ async def bedrock_embed(
     os.environ["AWS_SECRET_ACCESS_KEY"] = os.environ.get(
         "AWS_SECRET_ACCESS_KEY", aws_secret_access_key
     )
-    os.environ["AWS_SESSION_TOKEN"] = os.environ.get(
-        "AWS_SESSION_TOKEN", aws_session_token
-    )
+    #os.environ["AWS_SESSION_TOKEN"] = os.environ.get(
+    #    "AWS_SESSION_TOKEN", aws_session_token
+    #)
 
     session = aioboto3.Session()
-    async with session.client("bedrock-runtime") as bedrock_async_client:
+    async with session.client("bedrock-runtime", region_name="us-east-1") as bedrock_async_client:
         if (model_provider := model.split(".")[0]) == "amazon":
             embed_texts = []
             for text in texts:
@@ -169,13 +170,14 @@ async def bedrock_embed(
             )
 
             response = await bedrock_async_client.invoke_model(
-                model=model,
+                modelId=model,
                 body=body,
                 accept="application/json",
                 contentType="application/json",
             )
 
-            response_body = json.loads(response.get("body").read())
+            #response_body = json.loads(response.get("body").read())
+            response_body = await response.get("body").json()
 
             embed_texts = response_body["embeddings"]
         else:

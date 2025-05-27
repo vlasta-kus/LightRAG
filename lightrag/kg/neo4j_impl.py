@@ -2,7 +2,7 @@ import inspect
 import os
 import re
 from dataclasses import dataclass
-from typing import final
+from typing import final, Any
 import configparser
 
 
@@ -14,6 +14,7 @@ from tenacity import (
 )
 
 import logging
+from lightrag.prompt import GRAPH_FIELD_SEP
 from ..utils import logger
 from ..base import BaseGraphStorage
 from ..types import KnowledgeGraph, KnowledgeGraphNode, KnowledgeGraphEdge
@@ -186,7 +187,18 @@ class Neo4JStorage(BaseGraphStorage):
                             await result.consume()
                 except Exception as e:
                     logger.warning(f"Failed to create index: {str(e)}")
-                break
+
+                await self._create_indexes()
+
+    async def _create_indexes(self):
+        async with self._driver.session(database=self._DATABASE) as session:
+            try:
+                await session.run("CREATE INDEX _document_id IF NOT EXISTS FOR (d:_Document) ON (d.id)")
+                logger.info("Created or verified index for _Document nodes on id")
+                await session.run("CREATE INDEX _chunk_id IF NOT EXISTS FOR (c:_Chunk) ON (c.id)")
+                logger.info("Created or verified index for _Chunk nodes on id")
+            except Exception as e:
+                logger.warning(f"Failed to create indexes: {str(e)}")
 
     async def finalize(self):
         """Close the Neo4j driver and release all resources"""
@@ -230,7 +242,7 @@ class Neo4JStorage(BaseGraphStorage):
                 await result.consume()  # Ensure results are consumed even on error
                 raise
 
-    async def has_edge(self, source_node_id: str, target_node_id: str) -> bool:
+    async def has_edge(self, source_node_id: str, target_node_id: str, source_project: str | None = None) -> bool:
         """
         Check if an edge exists between two nodes
 
@@ -249,14 +261,16 @@ class Neo4JStorage(BaseGraphStorage):
             database=self._DATABASE, default_access_mode="READ"
         ) as session:
             try:
-                query = (
-                    "MATCH (a:base {entity_id: $source_entity_id})-[r]-(b:base {entity_id: $target_entity_id}) "
-                    "RETURN COUNT(r) > 0 AS edgeExists"
-                )
+                if source_project is None:
+                    query = "MATCH (a:base {entity_id: $source_entity_id})-[r]-(b:base {entity_id: $target_entity_id}) "
+                else:
+                    query = "MATCH (a:base {entity_id: $source_entity_id})-[r {source_project: $source_project}]-(b:base {entity_id: $target_entity_id}) "
+                query += "RETURN COUNT(r) > 0 AS edgeExists"
                 result = await session.run(
                     query,
                     source_entity_id=source_node_id,
                     target_entity_id=target_node_id,
+                    source_project=source_project,
                 )
                 single_result = await result.single()
                 await result.consume()  # Ensure result is fully consumed
@@ -268,8 +282,8 @@ class Neo4JStorage(BaseGraphStorage):
                 await result.consume()  # Ensure results are consumed even on error
                 raise
 
-    async def get_node(self, node_id: str) -> dict[str, str] | None:
-        """Get node by its label identifier, return only node properties
+    async def get_node(self, node_id: str, case_insensitive: bool = False) -> dict[str, str] | None:
+        """Get node by its label identifier, return only node properties except `embedding` one
 
         Args:
             node_id: The node label to look up
@@ -287,6 +301,8 @@ class Neo4JStorage(BaseGraphStorage):
         ) as session:
             try:
                 query = "MATCH (n:base {entity_id: $entity_id}) RETURN n"
+                if case_insensitive:
+                    query = "MATCH (n:base) WHERE toLower(n.entity_id) = toLower($entity_id) RETURN n" 
                 result = await session.run(query, entity_id=node_id)
                 try:
                     records = await result.fetch(
@@ -307,6 +323,8 @@ class Neo4JStorage(BaseGraphStorage):
                                 for label in node_dict["labels"]
                                 if label != "base"
                             ]
+                        # Remove embedding field if it exists
+                        node_dict.pop("embedding", None)
                         logger.debug(f"Neo4j query node {query} return: {node_dict}")
                         return node_dict
                     return None
@@ -345,6 +363,8 @@ class Neo4JStorage(BaseGraphStorage):
                     node_dict["labels"] = [
                         label for label in node_dict["labels"] if label != "base"
                     ]
+                # Remove embedding field if it exists
+                node_dict.pop("embedding", None)
                 nodes[entity_id] = node_dict
             await result.consume()  # Make sure to consume the result fully
             return nodes
@@ -424,7 +444,7 @@ class Neo4JStorage(BaseGraphStorage):
                     logger.warning(f"No node found with label '{nid}'")
                     degrees[nid] = 0
 
-            logger.debug(f"Neo4j batch node degree query returned: {degrees}")
+            #logger.debug(f"Neo4j batch node degree query returned: {degrees}")
             return degrees
 
     async def edge_degree(self, src_id: str, tgt_id: str) -> int:
@@ -474,14 +494,14 @@ class Neo4JStorage(BaseGraphStorage):
         return edge_degrees
 
     async def get_edge(
-        self, source_node_id: str, target_node_id: str
-    ) -> dict[str, str] | None:
+        self, source_node_id: str, target_node_id: str, source_project: str | None = None
+    ) -> dict[str, Any] | None:
         """Get edge properties between two nodes.
 
         Args:
             source_node_id: Label of the source node
             target_node_id: Label of the target node
-
+            source_project: Source project of the edge
         Returns:
             dict: Edge properties if found, default properties if not found or on error
 
@@ -502,16 +522,27 @@ class Neo4JStorage(BaseGraphStorage):
                     source_entity_id=source_node_id,
                     target_entity_id=target_node_id,
                 )
+                
                 try:
-                    records = await result.fetch(2)
+                    #records = await result.fetch(2)
+                    records = [record async for record in result]
 
                     if len(records) > 1:
-                        logger.warning(
-                            f"Multiple edges found between '{source_node_id}' and '{target_node_id}'. Using first edge."
-                        )
+                        logger.debug(f"Multiple edges ({len(records)}) found between '{source_node_id}' and '{target_node_id}'")
+                        
                     if records:
                         try:
                             edge_result = dict(records[0]["edge_properties"])
+                            if source_project is not None:
+                                recs = [r for r in records if r["edge_properties"]["source_project"] == source_project]
+                                if len(recs) == 0:
+                                    logger.debug(f"No edge found between '{source_node_id}' and '{target_node_id}' for source project {source_project}.")
+                                    return None
+                                elif len(recs) > 1:
+                                    logger.warning(f"Multiple edges ({len(recs)}) found between '{source_node_id}' and '{target_node_id}' for source project {source_project}, using the first one.")
+                                edge_result = dict(recs[0]["edge_properties"])
+                            # Remove embedding field if it exists
+                            edge_result.pop("embedding", None)
                             logger.debug(f"Result: {edge_result}")
                             # Ensure required keys exist with defaults
                             required_keys = {
@@ -519,6 +550,7 @@ class Neo4JStorage(BaseGraphStorage):
                                 "source_id": None,
                                 "description": None,
                                 "keywords": None,
+                                "source_project": None,
                             }
                             for key, default_value in required_keys.items():
                                 if key not in edge_result:
@@ -543,6 +575,7 @@ class Neo4JStorage(BaseGraphStorage):
                                 "source_id": None,
                                 "description": None,
                                 "keywords": None,
+                                "source_project": None,
                             }
 
                     logger.debug(
@@ -587,12 +620,15 @@ class Neo4JStorage(BaseGraphStorage):
                 edges = record["edges"]
                 if edges and len(edges) > 0:
                     edge_props = edges[0]  # choose the first if multiple exist
+                    # Remove embedding field if it exists
+                    edge_props.pop("embedding", None)
                     # Ensure required keys exist with defaults
                     for key, default in {
                         "weight": 0.0,
                         "source_id": None,
                         "description": None,
                         "keywords": None,
+                        "source_project": None,
                     }.items():
                         if key not in edge_props:
                             edge_props[key] = default
@@ -604,6 +640,7 @@ class Neo4JStorage(BaseGraphStorage):
                         "source_id": None,
                         "description": None,
                         "keywords": None,
+                        "source_project": None,
                     }
             await result.consume()
             return edges_dict
@@ -771,6 +808,17 @@ class Neo4JStorage(BaseGraphStorage):
                     )
                     await result.consume()  # Ensure result is fully consumed
 
+                    if 'source_id' in properties:
+                        query = (
+                            "MATCH (n:base {entity_id: $entity_id})\n"
+                            "WITH n\n"
+                            "UNWIND $source_ids as source_id\n"
+                            "MATCH (c:_Chunk {id: source_id})\n"
+                            "MERGE (n)-[:_MENTIONED_IN]->(c)"
+                        )
+                        await tx.run(query, entity_id=node_id, source_ids=properties['source_id'].split(GRAPH_FIELD_SEP))
+                        await result.consume()
+
                 await session.execute_write(execute_upsert)
         except Exception as e:
             logger.error(f"Error during upsert: {str(e)}")
@@ -789,7 +837,7 @@ class Neo4JStorage(BaseGraphStorage):
         ),
     )
     async def upsert_edge(
-        self, source_node_id: str, target_node_id: str, edge_data: dict[str, str]
+        self, source_node_id: str, target_node_id: str, edge_data: dict[str, Any]
     ) -> None:
         """
         Upsert an edge and its properties between two nodes identified by their labels.
@@ -813,7 +861,7 @@ class Neo4JStorage(BaseGraphStorage):
                     MATCH (source:base {entity_id: $source_entity_id})
                     WITH source
                     MATCH (target:base {entity_id: $target_entity_id})
-                    MERGE (source)-[r:DIRECTED]-(target)
+                    MERGE (source)-[r:DIRECTED {source_project: $source_project}]-(target)
                     SET r += $properties
                     RETURN r, source, target
                     """
@@ -822,6 +870,7 @@ class Neo4JStorage(BaseGraphStorage):
                         source_entity_id=source_node_id,
                         target_entity_id=target_node_id,
                         properties=edge_properties,
+                        source_project=edge_data.get("source_project", "generic"),
                     )
                     try:
                         records = await result.fetch(2)
@@ -1350,3 +1399,95 @@ class Neo4JStorage(BaseGraphStorage):
         except Exception as e:
             logger.error(f"Error dropping Neo4j database {self._DATABASE}: {e}")
             return {"status": "error", "message": str(e)}
+
+    async def upsert_document(self, doc_id: str, doc_data: dict[str, Any]) -> None:
+        """
+        Upsert a document and its chunks into Neo4j.
+        
+        Args:
+            doc_id: Unique document identifier
+            doc_data: Dictionary containing document data and optional chunks
+        """
+        try:
+            async with self._driver.session(database=self._DATABASE) as session:
+                async def execute_upsert(tx: AsyncManagedTransaction):
+                    # Extract document properties (excluding chunks)
+                    doc_props = {k: v for k, v in doc_data.items() if k != "chunks"}
+                    
+                    # Create/update document node
+                    doc_query = """
+                    MERGE (d:_Document {id: $doc_id})
+                    SET d += $doc_props
+                    """
+                    result = await tx.run(doc_query, {
+                        "doc_id": doc_id,
+                        "doc_props": doc_props
+                    })
+                    await result.consume()
+                    
+                    # If chunks are provided, create/update them
+                    if "chunks" in doc_data:
+                        # Sort chunks by chunk_order_index to ensure correct sequence
+                        sorted_chunks = sorted(doc_data["chunks"], key=lambda x: x.get("chunk_order_index", 0))
+                        
+                        # First, create all chunks and their relationships to the document
+                        for chunk in sorted_chunks:
+                            chunk_query = """
+                            MERGE (c:_Chunk {id: $chunk_id})
+                            SET c += $chunk_props
+                            WITH c
+                            MATCH (d:_Document {id: $doc_id})
+                            MERGE (d)-[:HAS_CHUNK]->(c)
+                            """
+                            result = await tx.run(chunk_query, {
+                                "chunk_id": chunk["id"],
+                                "chunk_props": chunk,
+                                "doc_id": doc_id
+                            })
+                            await result.consume()
+                        
+                        # Then, create NEXT_CHUNK relationships between consecutive chunks
+                        for i in range(len(sorted_chunks) - 1):
+                            current_chunk = sorted_chunks[i]
+                            next_chunk = sorted_chunks[i + 1]
+                            next_chunk_query = """
+                            MATCH (c1:_Chunk {id: $chunk_id})
+                            MATCH (c2:_Chunk {id: $next_chunk_id})
+                            MERGE (c1)-[:NEXT_CHUNK]->(c2)
+                            """
+                            await tx.run(next_chunk_query, {
+                                "chunk_id": current_chunk["id"],
+                                "next_chunk_id": next_chunk["id"]
+                            })
+                
+                await session.execute_write(execute_upsert)
+        except Exception as e:
+            logger.error(f"Error during document upsert: {str(e)}")
+            raise
+
+    async def get_document(self, doc_id: str) -> dict[str, Any] | None:
+        """
+        Get document and its chunks by ID.
+        
+        Args:
+            doc_id: Document identifier
+            
+        Returns:
+            Dictionary containing document data and chunks, or None if not found
+        """
+        async with self._driver.session(database=self._DATABASE) as session:
+            query = """
+            MATCH (d:_Document {id: $doc_id})
+            OPTIONAL MATCH (d)-[:HAS_CHUNK]->(c:_Chunk)
+            RETURN d, collect(c) as chunks
+            """
+            result = await session.run(query, doc_id=doc_id)
+            record = await result.single()
+            await result.consume()
+            
+            if record:
+                doc_data = dict(record["d"])
+                chunks = [dict(chunk) for chunk in record["chunks"]]
+                doc_data["chunks"] = chunks
+                return doc_data
+            return None
