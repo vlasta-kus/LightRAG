@@ -12,9 +12,9 @@ PROMPTS["DEFAULT_COMPLETION_DELIMITER"] = "<|COMPLETE|>"
 
 #"product (anything produced/sold, e.g. machines, tools, components, substances etc.)"
 PROMPTS["DEFAULT_ENTITY_TYPES"] = [
-    "organization", "person_or_title", "document (id or title of any concrete physical or electronic document)", 
-    "process (a process, procedure, plan, or any set of steps/tasks; e.g. change management process, Corrective Procedure etc.)", 
-    "task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.)", 
+    "organization", "person_or_title (specific business title/role or person name)", "document (id or title of any concrete complete physical or electronic document, not just its fragment)", 
+    "process (a high-level process, procedure, plan, or any set of steps/tasks/activities; e.g. change management process, Corrective Procedure etc.)", 
+    "activity (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.)", 
     "device (any kind of machine, device, tool, device component ...)", 
     "object (any kind of physical object not used to do work)", 
     "material_or_substance", 
@@ -33,7 +33,7 @@ Use {language} as output language.
 - entities should have specific names - avoid creation of super nodes like "machine" or "responsible"
 - entity attributes / descriptions should be usable and useful across documents from different (but often partly related) manufacturing projects; for example, multiple projects will likely have Predictive Maintenance process node, but different project-specific details - put those details to relationships
 - edges represent specific details of a relation between two entities based on the current input text / project
-The goal is to build a multi-project KG and avoid information duplicates where possible.
+The goal is to build a multi-project KG that captures the essential higher-level manufacturing & engineering knowledge. Avoid information duplicates in node vs edge descriptions.
 
 2. Identify all entities according to the list of entity types and extract the following information:
 - entity_name: Name of the entity, use same language as input text. Avoid too generic entity names: always attempt to identify concrete full entity name based on the whole context!
@@ -74,7 +74,7 @@ Output:"""
 PROMPTS["entity_extraction_examples"] = [
     """Example 1:
 
-Entity_types: [document (id or title of any concrete physical or electronic document), person_or_title, process (a process, procedure, plan, or any set of steps/tasks; e.g. change management process, Corrective Procedure etc.), task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.), other]
+Entity_types: [document (id or title of any concrete physical or electronic document), person_or_title, process (a process, procedure, plan, or any set of steps/tasks; e.g. change management process, Corrective Procedure etc.), activity (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.), other]
 Text:
 ```
 Emphasis shall be put on preventive maintenance, to ensure equipment operates without unexpected down time or error. Correcting a fault in a machine after it breaks is considered repair, and not maintenance. The purpose of a robust preventive maintenance program is to eliminate 
@@ -87,22 +87,26 @@ Preventive maintenance records must be kept for each unique piece of key process
 - Model number
 - Serial number
 Manufacturers often issue guidelines. Preventive Maintenance tasks shall be based on these guidelines, but may be overridden or altered to suit the company’s specific needs, based on equipment usage, criticality to quality, etc.
-Those that are done daily, hourly, “before use” or at a more frequent basis, the need for a record is not required. Records must be maintained for any task performed at a frequency of weekly or greater (use Preventive Maintenance Log).
+Those that are done daily, hourly, “before use” or at a more frequent basis, the need for a record is not required. Records must be maintained for any task performed at a frequency of weekly or greater (use Machine Maintenance section of the Preventive Maintenance Log).
+
+1.3.2. Quality Objectives
+The Quality Objectives are designed to provide a meaningful measure of the company to agreed targets set by the management team. Targets are based on significant risks, reviewed periodically and changed to reflect the company’s commitment to continual improvement.
+The company is dedicated to continual improvement and quality maintenance.
+Human resources to deliver the maintenance are provided by the responsible manager (“Who by” section).
 ```
 
 Output:
-("entity"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"process"{tuple_delimiter}"Aims to eliminate unscheduled repairs and downtime through proactive measures."){record_delimiter}
-("entity"{tuple_delimiter}"machine repair"{tuple_delimiter}"task"{tuple_delimiter}"Correcting a fault after a machine breaks."){record_delimiter}
+("entity"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"process"{tuple_delimiter}"Aims to eliminate unscheduled machine repairs and downtime through proactive measures to address issues before failure occurs."){record_delimiter}
 ("entity"{tuple_delimiter}"Preventive Maintenance Log"{tuple_delimiter}"document"{tuple_delimiter}"Records of Preventive Maintenance tasks performed on weekly or greater basis."){record_delimiter}
 ("entity"{tuple_delimiter}"manufacturer's guidelines"{tuple_delimiter}"process"{tuple_delimiter}"Recommended processes issued by manufacturers that serve as the basis for machine and equipment maintenance."){record_delimiter}
-("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"machine repair"{tuple_delimiter}"Preventive Maintenance is designed to reduce the need for repair and down time by addressing issues before failure occurs."{tuple_delimiter}"prevention vs correction, operational strategy, maintenance"{tuple_delimiter}9){record_delimiter}
-("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"Preventive Maintenance Log"{tuple_delimiter}"Records of Preventive Maintenance tasks must be kept, containing at a minimum Type of device, Manufacturer, Model number, Serial number."{tuple_delimiter}"documentation requirements, compliance tracking"{tuple_delimiter}10){record_delimiter}
+("entity"{tuple_delimiter}"Quality Objectives"{tuple_delimiter}"process"{tuple_delimiter}"They provide a measure of company targets, based on periodically reviewed significant risks, set by the management team."){record_delimiter}
+("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"Preventive Maintenance Log"{tuple_delimiter}"Records of Preventive Maintenance tasks must be kept in Preventive Maintenance Log's Machine Maintenance section, containing at a minimum Type of device, Manufacturer, Model number, Serial number."{tuple_delimiter}"documentation requirements, compliance tracking"{tuple_delimiter}10){record_delimiter}
 ("relationship"{tuple_delimiter}"Preventive Maintenance"{tuple_delimiter}"manufacturer's guidelines"{tuple_delimiter}"Preventive Maintenance activities are based on manufacturer’s guidelines and internal company needs. They ensure equipment reliability, production quality, etc."{tuple_delimiter}"maintenance guidelines, customization"{tuple_delimiter}10){record_delimiter}
 ("content_keywords"{tuple_delimiter}"preventive maintenance, equipment reliability, operational strategy, documentation"){completion_delimiter}
 #############################""",
     """Example 2:
 
-Entity_types: [organization, process (a process, procedure, plan, or any set of steps/tasks), task (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.), device (any kind of machine, device, tool, component ...), object (any kind of physical object that is not a product), material_or_substance, other]
+Entity_types: [document (id or title of any concrete physical or electronic document), organization, process (a process, procedure, plan, or any set of steps/tasks), activity (any task, activity or event; e.g. Quality Validation, QA Inspection, machine downtime, etc.), device (any kind of machine, device, tool, component ...), object (any kind of physical object that is not a product), material_or_substance, other]
 Text:
 ```
 CERN, the European Organization for Nuclear Research, has a seat is in Geneva but its premises are located on both sides of the French-Swiss border. CERN’s mission is to enable international collaboration in the field of high-energy particle physics research.
@@ -121,12 +125,13 @@ Redwire will utilise various inspection tools in the validation of the TBPS ring
 Name: John Snow
 Job Title: Project Manager
 Date (expected): 19/10/1918
+Activities: see "Responsibilities" column
 ```
 
 Output:
 ("entity"{tuple_delimiter}"CERN"{tuple_delimiter}"organization"{tuple_delimiter}"CERN, the European Organization for Nuclear Research, headquartered in Geneva, enables high-energy particle physics research."){record_delimiter}
 ("entity"{tuple_delimiter}"Compact Muon Solenoid (CMS)"{tuple_delimiter}"device"{tuple_delimiter}"A particle physics experiment at CERN's LHC accelerator."){record_delimiter}
-("entity"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"task"{tuple_delimiter}"A major modification of the CMS experiment."){record_delimiter}
+("entity"{tuple_delimiter}"CMS Phase 2 Upgrade"{tuple_delimiter}"activity"{tuple_delimiter}"A major modification of the CMS experiment."){record_delimiter}
 ("entity"{tuple_delimiter}"LHC"{tuple_delimiter}"device"{tuple_delimiter}"A particle accelerator at CERN."){record_delimiter}
 ("entity"{tuple_delimiter}"TBPS"{tuple_delimiter}"device"{tuple_delimiter}"A sub-detector within the tracking detector system at the CMS experiment at CERN."){record_delimiter}
 ("entity"{tuple_delimiter}"Interconnection Ring"{tuple_delimiter}"device"{tuple_delimiter}"A laminated component that joins the three concentric layers of the TBPS sub-detector."){record_delimiter}

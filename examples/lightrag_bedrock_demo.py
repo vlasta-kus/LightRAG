@@ -42,6 +42,7 @@ if not load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.e
     raise RuntimeError("Can't load the .env file")
 
 WORKING_DIR = "workdir"
+#WORKING_DIR = "workdir_test"
 if not os.path.exists(WORKING_DIR):
     os.mkdir(WORKING_DIR)
 
@@ -104,11 +105,17 @@ def main(task: Literal["ingest", "query"]):
     #asyncio.run(rag.aclear_cache())
 
     ### Clear all DBs
-    #asyncio.run(clear_all_data(rag)) ### Careful here!!! ###
+    confirmation = input("\n!!! Are you sure you want to PURGE ALL DATA from vector DB and graph DB? This action cannot be undone. Type 'yes' to confirm: ")
+    #if confirmation.lower() == 'yes':
+    #    asyncio.run(clear_all_data(rag))
+    #else:
+    #    print("Data clearing aborted.")
 
     if task == "ingest":
         #dir = "data"
-        dir = "data/CERN"
+        #dir = "data/CERN"
+        dir = "data/AS9100"
+        source_project = "AS9100"
         print(f"Ingesting documents from {dir} ...")
 
         json_files = get_json_files(dir)
@@ -118,7 +125,7 @@ def main(task: Literal["ingest", "query"]):
         batch_size = 5
         for i in range(0, len(json_files), batch_size):
             batch = json_files[i:i + batch_size]
-            print(f"\n=== Processing batch {i//batch_size + 1} of {(len(json_files) + batch_size - 1)//batch_size}")
+            print(f"\n=== Processing batch {i//batch_size + 1} of {len(json_files)//batch_size}")
             
             batch_texts = []
             batch_ids = []
@@ -138,9 +145,9 @@ def main(task: Literal["ingest", "query"]):
                 batch_paths.append(file_id)
             
             # Insert the batch
-            rag.insert(input=batch_texts, ids=batch_ids, file_paths=batch_paths)
+            rag.insert(input=batch_texts, ids=batch_ids, file_paths=batch_paths, doc_metadata=[{'project': source_project}] * len(batch_texts))
             
-            print(f"Finished processing batch. Files remaining: {len(json_files) - (i * batch_size + len(batch))}")
+            print(f"Finished processing batch. Files remaining: {len(json_files) - (i + len(batch))}")
 
     elif task == "query":
         #query = "What are the top themes in this dataset?"

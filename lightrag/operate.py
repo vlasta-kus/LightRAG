@@ -153,6 +153,7 @@ async def _handle_single_entity_extraction(
     record_attributes: list[str],
     chunk_key: str,
     file_path: str = "unknown_source",
+    source_project: str | None = None
 ):
     if len(record_attributes) < 4 or '"entity"' not in record_attributes[0]:
         return None
@@ -186,6 +187,7 @@ async def _handle_single_entity_extraction(
         description=entity_description,
         source_id=chunk_key,
         file_path=file_path,
+        source_project=source_project,
     )
 
 
@@ -193,6 +195,7 @@ async def _handle_single_relationship_extraction(
     record_attributes: list[str],
     chunk_key: str,
     file_path: str = "unknown_source",
+    source_project: str | None = None
 ):
     if len(record_attributes) < 5 or '"relationship"' not in record_attributes[0]:
         return None
@@ -231,6 +234,7 @@ async def _handle_single_relationship_extraction(
         keywords=edge_keywords,
         source_id=edge_source_id,
         file_path=file_path,
+        source_project=source_project,
     )
 
 
@@ -248,7 +252,7 @@ async def _merge_nodes_then_upsert(
     already_source_ids = []
     already_description = []
     already_file_paths = []
-
+    already_source_projects = []
     already_node = await knowledge_graph_inst.get_node(entity_name, case_insensitive=True)
     if already_node is not None:
         entity_name = already_node["entity_id"] # id (name) of already existing node; needed for correct upsert
@@ -258,6 +262,9 @@ async def _merge_nodes_then_upsert(
         )
         already_file_paths.extend(
             split_string_by_multi_markers(already_node["file_path"], [GRAPH_FIELD_SEP])
+        )
+        already_source_projects.extend(
+            split_string_by_multi_markers(already_node["source_project"], [GRAPH_FIELD_SEP])
         )
         if len(already_node["description"].strip()) > 0:
             already_description.append(already_node["description"])
@@ -277,6 +284,9 @@ async def _merge_nodes_then_upsert(
     )
     file_path = GRAPH_FIELD_SEP.join(
         set([dp["file_path"] for dp in nodes_data] + already_file_paths)
+    )
+    source_project = GRAPH_FIELD_SEP.join(
+        set([dp["source_project"] for dp in nodes_data] + already_source_projects)
     )
 
     force_llm_summary_on_merge = global_config["force_llm_summary_on_merge"]
@@ -314,6 +324,7 @@ async def _merge_nodes_then_upsert(
         description=description,
         source_id=source_id,
         file_path=file_path,
+        source_project=source_project,
         created_at=int(time.time()),
     )
     await knowledge_graph_inst.upsert_node(
@@ -343,8 +354,10 @@ async def _merge_edges_then_upsert(
     already_keywords = []
     already_file_paths = []
 
-    if await knowledge_graph_inst.has_edge(src_id, tgt_id):
-        already_edge = await knowledge_graph_inst.get_edge(src_id, tgt_id)
+    source_project = edges_data[0].get("source_project", "generic")
+
+    if await knowledge_graph_inst.has_edge(src_id, tgt_id, source_project=source_project):
+        already_edge = await knowledge_graph_inst.get_edge(src_id, tgt_id, source_project=source_project)
         # Handle the case where get_edge returns None or missing fields
         if already_edge:
             # Get weight with default 0.0 if missing
@@ -437,6 +450,7 @@ async def _merge_edges_then_upsert(
                     "description": description,
                     "entity_type": "UNKNOWN",
                     "file_path": file_path,
+                    "source_project": source_project,
                     "created_at": int(time.time()),
                 },
             )
@@ -481,6 +495,7 @@ async def _merge_edges_then_upsert(
             keywords=keywords,
             source_id=source_id,
             file_path=file_path,
+            source_project=source_project,
             created_at=int(time.time()),
         ),
     )
@@ -492,6 +507,7 @@ async def _merge_edges_then_upsert(
         keywords=keywords,
         source_id=source_id,
         file_path=file_path,
+        source_project=source_project,
     )
 
     return edge_data
@@ -683,13 +699,14 @@ async def extract_entities(
     total_chunks = len(ordered_chunks)
 
     async def _process_extraction_result(
-        result: str, chunk_key: str, file_path: str = "unknown_source"
+        result: str, chunk_key: str, file_path: str = "unknown_source", source_project: str | None = None
     ):
         """Process a single extraction result (either initial or gleaning)
         Args:
             result (str): The extraction result to process
             chunk_key (str): The chunk key for source tracking
             file_path (str): The file path for citation
+            source_project (str | None): The project name for subgraph creation & project tracking
         Returns:
             tuple: (nodes_dict, edges_dict) containing the extracted entities and relationships
         """
@@ -711,14 +728,14 @@ async def extract_entities(
             )
 
             if_entities = await _handle_single_entity_extraction(
-                record_attributes, chunk_key, file_path
+                record_attributes, chunk_key, file_path, source_project
             )
             if if_entities is not None:
                 maybe_nodes[if_entities["entity_name"]].append(if_entities)
                 continue
 
             if_relation = await _handle_single_relationship_extraction(
-                record_attributes, chunk_key, file_path
+                record_attributes, chunk_key, file_path, source_project
             )
             if if_relation is not None:
                 maybe_edges[(if_relation["src_id"], if_relation["tgt_id"])].append(
@@ -741,6 +758,7 @@ async def extract_entities(
         content = chunk_dp["content"]
         # Get file path from chunk data or use default
         file_path = chunk_dp.get("file_path", "unknown_source")
+        source_project: str | None = chunk_dp.get("metadata", {}).get("project", "generic") # TO DO: configurable
 
         # Get initial extraction
         hint_prompt = entity_extract_prompt.format(
@@ -757,7 +775,7 @@ async def extract_entities(
 
         # Process initial extraction with file path
         maybe_nodes, maybe_edges = await _process_extraction_result(
-            final_result, chunk_key, file_path
+            final_result, chunk_key, file_path, source_project
         )
 
         # Process additional gleaning results
@@ -774,7 +792,7 @@ async def extract_entities(
 
             # Process gleaning result separately with file path
             glean_nodes, glean_edges = await _process_extraction_result(
-                glean_result, chunk_key, file_path
+                glean_result, chunk_key, file_path, source_project
             )
 
             # Merge results - only add entities and edges with new names

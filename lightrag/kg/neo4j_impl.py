@@ -242,7 +242,7 @@ class Neo4JStorage(BaseGraphStorage):
                 await result.consume()  # Ensure results are consumed even on error
                 raise
 
-    async def has_edge(self, source_node_id: str, target_node_id: str) -> bool:
+    async def has_edge(self, source_node_id: str, target_node_id: str, source_project: str | None = None) -> bool:
         """
         Check if an edge exists between two nodes
 
@@ -261,14 +261,16 @@ class Neo4JStorage(BaseGraphStorage):
             database=self._DATABASE, default_access_mode="READ"
         ) as session:
             try:
-                query = (
-                    "MATCH (a:base {entity_id: $source_entity_id})-[r]-(b:base {entity_id: $target_entity_id}) "
-                    "RETURN COUNT(r) > 0 AS edgeExists"
-                )
+                if source_project is None:
+                    query = "MATCH (a:base {entity_id: $source_entity_id})-[r]-(b:base {entity_id: $target_entity_id}) "
+                else:
+                    query = "MATCH (a:base {entity_id: $source_entity_id})-[r {source_project: $source_project}]-(b:base {entity_id: $target_entity_id}) "
+                query += "RETURN COUNT(r) > 0 AS edgeExists"
                 result = await session.run(
                     query,
                     source_entity_id=source_node_id,
                     target_entity_id=target_node_id,
+                    source_project=source_project,
                 )
                 single_result = await result.single()
                 await result.consume()  # Ensure result is fully consumed
@@ -492,14 +494,14 @@ class Neo4JStorage(BaseGraphStorage):
         return edge_degrees
 
     async def get_edge(
-        self, source_node_id: str, target_node_id: str
-    ) -> dict[str, str] | None:
+        self, source_node_id: str, target_node_id: str, source_project: str | None = None
+    ) -> dict[str, Any] | None:
         """Get edge properties between two nodes.
 
         Args:
             source_node_id: Label of the source node
             target_node_id: Label of the target node
-
+            source_project: Source project of the edge
         Returns:
             dict: Edge properties if found, default properties if not found or on error
 
@@ -520,16 +522,25 @@ class Neo4JStorage(BaseGraphStorage):
                     source_entity_id=source_node_id,
                     target_entity_id=target_node_id,
                 )
+                
                 try:
-                    records = await result.fetch(2)
+                    #records = await result.fetch(2)
+                    records = [record async for record in result]
 
                     if len(records) > 1:
-                        logger.warning(
-                            f"Multiple edges found between '{source_node_id}' and '{target_node_id}'. Using first edge."
-                        )
+                        logger.debug(f"Multiple edges ({len(records)}) found between '{source_node_id}' and '{target_node_id}'")
+                        
                     if records:
                         try:
                             edge_result = dict(records[0]["edge_properties"])
+                            if source_project is not None:
+                                recs = [r for r in records if r["edge_properties"]["source_project"] == source_project]
+                                if len(recs) == 0:
+                                    logger.debug(f"No edge found between '{source_node_id}' and '{target_node_id}' for source project {source_project}.")
+                                    return None
+                                elif len(recs) > 1:
+                                    logger.warning(f"Multiple edges ({len(recs)}) found between '{source_node_id}' and '{target_node_id}' for source project {source_project}, using the first one.")
+                                edge_result = dict(recs[0]["edge_properties"])
                             # Remove embedding field if it exists
                             edge_result.pop("embedding", None)
                             logger.debug(f"Result: {edge_result}")
@@ -539,6 +550,7 @@ class Neo4JStorage(BaseGraphStorage):
                                 "source_id": None,
                                 "description": None,
                                 "keywords": None,
+                                "source_project": None,
                             }
                             for key, default_value in required_keys.items():
                                 if key not in edge_result:
@@ -563,6 +575,7 @@ class Neo4JStorage(BaseGraphStorage):
                                 "source_id": None,
                                 "description": None,
                                 "keywords": None,
+                                "source_project": None,
                             }
 
                     logger.debug(
@@ -615,6 +628,7 @@ class Neo4JStorage(BaseGraphStorage):
                         "source_id": None,
                         "description": None,
                         "keywords": None,
+                        "source_project": None,
                     }.items():
                         if key not in edge_props:
                             edge_props[key] = default
@@ -626,6 +640,7 @@ class Neo4JStorage(BaseGraphStorage):
                         "source_id": None,
                         "description": None,
                         "keywords": None,
+                        "source_project": None,
                     }
             await result.consume()
             return edges_dict
@@ -822,7 +837,7 @@ class Neo4JStorage(BaseGraphStorage):
         ),
     )
     async def upsert_edge(
-        self, source_node_id: str, target_node_id: str, edge_data: dict[str, str]
+        self, source_node_id: str, target_node_id: str, edge_data: dict[str, Any]
     ) -> None:
         """
         Upsert an edge and its properties between two nodes identified by their labels.
@@ -846,7 +861,7 @@ class Neo4JStorage(BaseGraphStorage):
                     MATCH (source:base {entity_id: $source_entity_id})
                     WITH source
                     MATCH (target:base {entity_id: $target_entity_id})
-                    MERGE (source)-[r:DIRECTED]-(target)
+                    MERGE (source)-[r:DIRECTED {source_project: $source_project}]-(target)
                     SET r += $properties
                     RETURN r, source, target
                     """
@@ -855,6 +870,7 @@ class Neo4JStorage(BaseGraphStorage):
                         source_entity_id=source_node_id,
                         target_entity_id=target_node_id,
                         properties=edge_properties,
+                        source_project=edge_data.get("source_project", "generic"),
                     )
                     try:
                         records = await result.fetch(2)
